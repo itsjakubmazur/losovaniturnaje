@@ -1,0 +1,1782 @@
+                }
+            });
+        };
+        
+        // Označit zápas jako "Právě hraje"
+        window.togglePlayingNow = (matchId, groupId = null) => {
+            if (groupId !== null) {
+                window.tournamentData.groups = window.tournamentData.groups.map(g => {
+                    if (g.id === groupId) {
+                        return {
+                            ...g,
+                            matches: g.matches.map(m => {
+                                if (m.id === matchId) {
+                    const newPlayingState = !m.playingNow;
+                                    if (newPlayingState) {
+                                        addToHistory('match_playing', {
+                                            player1: m.player1.name,
+                                            player2: m.player2.name
+                                        });
+                                    }
+                                    return { ...m, playingNow: newPlayingState };
+                                }
+                                return m;
+                            })
+                        };
+                    }
+                    return g;
+                });
+                saveData();
+                renderGroups();
+            } else {
+                const match = window.tournamentData.matches.find(m => m.id === matchId);
+                
+                window.tournamentData.matches = window.tournamentData.matches.map(m => {
+                    if (m.id === matchId) {
+                        const newPlayingState = !m.playingNow;
+                        if (newPlayingState && match) {
+                            addToHistory('match_playing', {
+                                player1: match.player1.name,
+                                player2: match.player2.name
+                            });
+                        }
+                        return { ...m, playingNow: newPlayingState };
+                    }
+                    return m;
+                });
+                
+                saveData();
+                
+                if (window.tournamentData.system === 'roundrobin') {
+                    renderRoundRobin();
+                } else if (window.tournamentData.system === 'swiss') {
+                    renderSwiss();
+                }
+            }
+        };
+        
+        // Úprava kol (pouze pro round-robin)
+        window.editRounds = () => {
+            if (window.tournamentData.system !== 'roundrobin') return;
+            
+            const matches = window.tournamentData.matches;
+            const rounds = [...new Set(matches.map(m => m.round))].sort();
+            const participants = window.tournamentData.participants;
+            
+            const content = document.getElementById('editRoundsContent');
+            content.innerHTML = `
+                <div class="space-y-4">
+                    <div class="bg-blue-50 p-3 rounded text-sm text-blue-800">
+                        💡 <strong>Tip:</strong> Přetáhněte zápasy mezi koly nebo změňte soupeře pomocí dropdownů.
+                    </div>
+                    ${rounds.map(round => {
+                        const roundMatches = matches.filter(m => m.round === round);
+                        return `
+                            <div class="border rounded-lg p-4">
+                                <h4 class="font-bold text-lg mb-3">Kolo ${round}</h4>
+                                <div class="space-y-2">
+                                    ${roundMatches.map(match => `
+                                        <div class="flex items-center gap-2 bg-gray-50 p-2 rounded" data-match-id="${match.id}">
+                                            <select class="flex-1 px-2 py-1 border rounded" onchange="updateMatchPlayer(${match.id}, 'player1', this.value)">
+                                                ${participants.map(p => `
+                                                    <option value="${p.id}" ${p.id === match.player1.id ? 'selected' : ''}>
+                                                        ${p.name}
+                                                    </option>
+                                                `).join('')}
+                                            </select>
+                                            <span class="font-bold">vs</span>
+                                            <select class="flex-1 px-2 py-1 border rounded" onchange="updateMatchPlayer(${match.id}, 'player2', this.value)">
+                                                ${participants.map(p => `
+                                                    <option value="${p.id}" ${p.id === match.player2.id ? 'selected' : ''}>
+                                                        ${p.name}
+                                                    </option>
+                                                `).join('')}
+                                            </select>
+                                            <select class="px-2 py-1 border rounded w-24" onchange="updateMatchRound(${match.id}, this.value)">
+                                                ${rounds.map(r => `
+                                                    <option value="${r}" ${r === round ? 'selected' : ''}>
+                                                        Kolo ${r}
+                                                    </option>
+                                                `).join('')}
+                                            </select>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            
+            document.getElementById('editRoundsModal').classList.remove('hidden');
+        };
+        
+        window.tempMatchEdits = {};
+        
+        window.updateMatchPlayer = (matchId, playerSlot, playerId) => {
+            if (!window.tempMatchEdits[matchId]) {
+                const match = window.tournamentData.matches.find(m => m.id === matchId);
+                window.tempMatchEdits[matchId] = { ...match };
+            }
+            
+            const participant = window.tournamentData.participants.find(p => p.id == playerId);
+            if (participant) {
+                window.tempMatchEdits[matchId][playerSlot] = participant;
+            }
+        };
+        
+        window.updateMatchRound = (matchId, newRound) => {
+            if (!window.tempMatchEdits[matchId]) {
+                const match = window.tournamentData.matches.find(m => m.id === matchId);
+                window.tempMatchEdits[matchId] = { ...match };
+            }
+            
+            window.tempMatchEdits[matchId].round = parseInt(newRound);
+        };
+        
+        window.saveRoundEdits = () => {
+            // Aplikovat změny
+            window.tournamentData.matches = window.tournamentData.matches.map(match => {
+                if (window.tempMatchEdits[match.id]) {
+                    return { ...match, ...window.tempMatchEdits[match.id] };
+                }
+                return match;
+            });
+            
+            // Validace - zkontrolovat duplicity
+            const seen = new Set();
+            let hasDuplicates = false;
+            
+            window.tournamentData.matches.forEach(match => {
+                const key1 = `${match.player1.id}-${match.player2.id}`;
+                const key2 = `${match.player2.id}-${match.player1.id}`;
+                
+                if (seen.has(key1) || seen.has(key2)) {
+                    hasDuplicates = true;
+                }
+                seen.add(key1);
+                seen.add(key2);
+            });
+            
+            if (hasDuplicates) {
+                showNotification('⚠️ Varování: Někteří hráči hrají spolu vícekrát!', 'warning');
+            }
+            
+            window.tempMatchEdits = {};
+            addToHistory('rounds_edit', { message: 'Rozlosování kol upraveno' });
+            saveData();
+            renderRoundRobin();
+            closeEditRounds();
+            showNotification('✅ Změny uloženy!', 'success');
+        };
+        
+        window.closeEditRounds = () => {
+            window.tempMatchEdits = {};
+            document.getElementById('editRoundsModal').classList.add('hidden');
+        };
+        
+        // Historie změn
+        window.addToHistory = (action, details) => {
+            if (!window.tournamentData.history) {
+                window.tournamentData.history = [];
+            }
+            
+            const actionLabels = {
+                'tournament_start': '🚀 Turnaj spuštěn',
+                'tournament_reset': '🔄 Turnaj resetován',
+                'score_update': '⚽ Výsledek zadán',
+                'score_delete': '🗑️ Výsledek smazán',
+                'note_add': '📝 Poznámka přidána',
+                'note_delete': '🗑️ Poznámka smazána',
+                'participant_add': '➕ Účastník přidán',
+                'participant_remove': '➖ Účastník odebrán',
+                'playoff_generate': '🏆 Play-off vygenerováno',
+                'swiss_round': '🔄 Nové kolo švýcaru',
+                'tournament_duplicate': '📋 Turnaj duplikován',
+                'data_import': '📤 Data importována',
+                'data_export': '📥 Data exportována',
+                'match_playing': '🏸 Zápas právě hraje'
+            };
+            
+            window.tournamentData.history.push({
+                timestamp: new Date().toISOString(),
+                action: action,
+                label: actionLabels[action] || action,
+                details: details
+            });
+            
+            // Omezit historii na posledních 100 záznamů
+            if (window.tournamentData.history.length > 100) {
+                window.tournamentData.history = window.tournamentData.history.slice(-100);
+            }
+            
+            saveData();
+        };
+        
+        window.showHistory = () => {
+            const history = window.tournamentData.history || [];
+            const content = document.getElementById('historyContent');
+            
+            if (history.length === 0) {
+                content.innerHTML = '<p class="text-gray-500 text-center py-8">Zatím žádná historie</p>';
+            } else {
+                // Seřadit od nejnovějších
+                const sortedHistory = [...history].reverse();
+                
+                content.innerHTML = `
+                    <div class="space-y-2">
+                        ${sortedHistory.map((entry, index) => {
+                            const date = new Date(entry.timestamp);
+                            const timeStr = date.toLocaleString('cs-CZ', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                            
+                            return `
+                                <div class="bg-gray-50 p-3 rounded-lg border-l-4 border-blue-500">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex-1">
+                                            <div class="font-semibold text-gray-800">${entry.label}</div>
+                                            ${entry.details ? `
+                                                <div class="text-sm text-gray-600 mt-1">
+                                                    ${formatHistoryDetails(entry.details)}
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                        <div class="text-xs text-gray-500 ml-2 whitespace-nowrap">
+                                            ${timeStr}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    ${history.length > 50 ? `
+                        <div class="text-center text-sm text-gray-500 mt-4">
+                            Zobrazeno posledních 100 záznamů
+                        </div>
+                    ` : ''}
+                `;
+            }
+            
+            document.getElementById('historyModal').classList.remove('hidden');
+        };
+        
+        window.formatHistoryDetails = (details) => {
+            if (typeof details === 'string') return details;
+            if (!details) return '';
+            
+            const parts = [];
+            if (details.player1 && details.player2) {
+                parts.push(`${details.player1} vs ${details.player2}`);
+            }
+            if (details.score) parts.push(`Skóre: ${details.score}`);
+            if (details.oldScore && details.newScore) {
+                parts.push(`${details.oldScore} → ${details.newScore}`);
+            }
+            if (details.name) parts.push(details.name);
+            if (details.numGroups) parts.push(`${details.numGroups} skupin`);
+            if (details.round) parts.push(`Kolo ${details.round}`);
+            if (details.note) parts.push(`"${details.note}"`);
+            
+            return parts.join(' • ');
+        };
+        
+        window.closeHistory = () => {
+            document.getElementById('historyModal').classList.add('hidden');
+        };
+        
+        // Dark mode
+        window.toggleDarkMode = () => {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDark);
+        };
+        
+        // Notifikace
+        window.showNotification = (message, type = 'success') => {
+            const container = document.getElementById('notificationContainer');
+            const notification = document.createElement('div');
+            notification.className = `notification ${type === 'error' ? 'bg-red-500' : 'bg-green-500'} text-white`;
+            notification.textContent = message;
+            container.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        };
+        
+        // Notifikace
+        window.showNotification = (message, type = 'success') => {
+            const container = document.getElementById('notificationContainer');
+            const notification = document.createElement('div');
+            const bgColor = type === 'error' ? 'bg-red-500' : type === 'warning' ? 'bg-orange-500' : 'bg-green-500';
+            notification.className = `notification ${bgColor} text-white`;
+            notification.textContent = message;
+            container.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        };
+        
+        // QR kód/URL sdílení
+        window.showQRCode = () => {
+            const data = JSON.stringify(window.tournamentData);
+            const compressed = btoa(encodeURIComponent(data));
+            const baseUrl = window.location.href.split('?')[0];
+            const shareUrl = `${baseUrl}?data=${compressed}`;
+            
+            const container = document.getElementById('qrCodeContainer');
+            
+            // Kontrola délky URL
+            const urlLength = shareUrl.length;
+            const isTooLong = urlLength > 2000;
+            
+            container.innerHTML = `
+                <div class="bg-gray-100 p-6 rounded-lg">
+                    ${isTooLong ? `
+                        <div class="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded mb-4">
+                            ⚠️ URL je příliš dlouhé (${urlLength} znaků). Doporučujeme použít Export/Import JSON místo URL.
+                        </div>
+                    ` : `
+                        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                            ✅ URL připraveno ke sdílení (${urlLength} znaků)
+                        </div>
+                    `}
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Odkaz pro sdílení:</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="shareUrlInput" value="${shareUrl}" readonly
+                                class="flex-1 px-3 py-2 border rounded text-sm bg-white"
+                                onclick="this.select()">
+                            <button onclick="copyShareUrl()" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold whitespace-nowrap">
+                                📋 Zkopírovat
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="text-sm text-gray-600 space-y-2">
+                        <p><strong>Jak sdílet:</strong></p>
+                        <ol class="list-decimal ml-5 space-y-1">
+                            <li>Zkopírujte odkaz tlačítkem výše</li>
+                            <li>Pošlete odkaz kolegům (email, WhatsApp...)</li>
+                            <li>Při otevření odkazu se automaticky načte turnaj</li>
+                        </ol>
+                        
+                        <p class="mt-3"><strong>💡 Tip:</strong> Pro dlouhodobé ukládání použijte Export/Import JSON souboru.</p>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('qrModal').classList.remove('hidden');
+        };
+        
+        window.copyShareUrl = () => {
+            const input = document.getElementById('shareUrlInput');
+            input.select();
+            navigator.clipboard.writeText(input.value).then(() => {
+                showNotification('✅ Odkaz zkopírován do schránky!', 'success');
+            }).catch(() => {
+                showNotification('❌ Chyba při kopírování', 'error');
+            });
+        };
+        
+        window.closeQR = () => {
+            document.getElementById('qrModal').classList.add('hidden');
+        };
+        
+        // Načíst data z URL při startu
+        const urlParams = new URLSearchParams(window.location.search);
+        const dataParam = urlParams.get('data');
+        
+        if (dataParam) {
+            try {
+                const decodedData = decodeURIComponent(atob(dataParam));
+                const data = JSON.parse(decodedData);
+                Object.assign(window.tournamentData, data);
+                saveData();
+                
+                // Odstranit parametr z URL pro čistotu
+                window.history.replaceState({}, document.title, window.location.pathname);
+                
+                // Zobrazit správnou sekci
+                if (data.step === 'matches') {
+                    setTimeout(() => {
+                        document.getElementById('setupSection').classList.add('hidden');
+                        document.getElementById('matchesSection').classList.remove('hidden');
+                        document.getElementById('tournamentTitle').textContent = data.name;
+                        
+                        if (data.system === 'roundrobin') {
+                            renderRoundRobin();
+                        } else if (data.system === 'groups') {
+                            renderGroups();
+                        } else if (data.system === 'swiss') {
+                            renderSwiss();
+                        }
+                        
+                        showNotification('✅ Turnaj načten z odkazu!', 'success');
+                    }, 100);
+                } else if (data.step === 'playoff') {
+                    setTimeout(() => {
+                        document.getElementById('setupSection').classList.add('hidden');
+                        document.getElementById('playoffSection').classList.remove('hidden');
+                        renderPlayoff();
+                        showNotification('✅ Play-off načteno z odkazu!', 'success');
+                    }, 100);
+                } else {
+                    setTimeout(() => {
+                        renderParticipants();
+                        document.getElementById('tournamentName').value = data.name;
+                        showNotification('✅ Nastavení načteno z odkazu!', 'success');
+                    }, 100);
+                }
+            } catch (error) {
+                console.error('Chyba při načítání dat z URL:', error);
+                showNotification('❌ Chyba při načítání dat z odkazu', 'error');
+            }
+        }
+        
+        // Statistiky
+        window.showStats = () => {
+            const participants = window.tournamentData.participants;
+            const system = window.tournamentData.system;
+            let allMatches = [];
+            
+            if (system === 'groups') {
+                window.tournamentData.groups.forEach(g => {
+                    allMatches = allMatches.concat(g.matches);
+                });
+            } else {
+                allMatches = window.tournamentData.matches;
+            }
+            
+            const finishedMatches = allMatches.filter(m => m.finished);
+            const totalMatches = allMatches.length;
+            const progress = totalMatches > 0 ? Math.round((finishedMatches.length / totalMatches) * 100) : 0;
+            
+            // Průměrné skóre
+            let totalSets = 0;
+            finishedMatches.forEach(m => {
+                totalSets += m.score1 + m.score2;
+            });
+            const avgSets = finishedMatches.length > 0 ? (totalSets / finishedMatches.length).toFixed(1) : 0;
+            
+            // Nejvyšší skóre
+            let highestScore = { score1: 0, score2: 0, player1: null, player2: null };
+            finishedMatches.forEach(m => {
+                const total = m.score1 + m.score2;
+                const highestTotal = highestScore.score1 + highestScore.score2;
+                if (total > highestTotal) {
+                    highestScore = m;
+                }
+            });
+            
+            // Nejdelší série výher
+            const streaks = {};
+            participants.forEach(p => {
+                streaks[p.id] = { current: 0, max: 0, name: p.name };
+            });
+            
+            finishedMatches.forEach(match => {
+                if (match.score1 > match.score2) {
+                    streaks[match.player1.id].current++;
+                    streaks[match.player1.id].max = Math.max(streaks[match.player1.id].max, streaks[match.player1.id].current);
+                    if (streaks[match.player2.id]) streaks[match.player2.id].current = 0;
+                } else if (match.score2 > match.score1) {
+                    streaks[match.player2.id].current++;
+                    streaks[match.player2.id].max = Math.max(streaks[match.player2.id].max, streaks[match.player2.id].current);
+                    if (streaks[match.player1.id]) streaks[match.player1.id].current = 0;
+                }
+            });
+            
+            const bestStreak = Object.values(streaks).reduce((best, streak) => {
+                return streak.max > best.max ? streak : best;
+            }, { max: 0, name: '-' });
+            
+            // Nejvíce remíz
+            const draws = {};
+            participants.forEach(p => {
+                draws[p.id] = { count: 0, name: p.name };
+            });
+            
+            finishedMatches.forEach(match => {
+                if (match.score1 === match.score2) {
+                    if (draws[match.player1.id]) draws[match.player1.id].count++;
+                    if (draws[match.player2.id]) draws[match.player2.id].count++;
+                }
+            });
+            
+            const mostDraws = Object.values(draws).reduce((most, d) => {
+                return d.count > most.count ? d : most;
+            }, { count: 0, name: '-' });
+            
+            // Nejproduktivnější hráč (nejvíc setů celkem)
+            const totalSetsPerPlayer = {};
+            participants.forEach(p => {
+                totalSetsPerPlayer[p.id] = { total: 0, name: p.name };
+            });
+            
+            finishedMatches.forEach(match => {
+                if (totalSetsPerPlayer[match.player1.id]) totalSetsPerPlayer[match.player1.id].total += match.score1;
+                if (totalSetsPerPlayer[match.player2.id]) totalSetsPerPlayer[match.player2.id].total += match.score2;
+            });
+            
+            const mostProductive = Object.values(totalSetsPerPlayer).reduce((most, p) => {
+                return p.total > most.total ? p : most;
+            }, { total: 0, name: '-' });
+            
+            // Poznámky
+            const matchesWithNotes = allMatches.filter(m => m.note && m.note.trim());
+            
+            const content = document.getElementById('statsContent');
+            content.innerHTML = `
+                <div class="space-y-4">
+                    <h4 class="font-bold text-lg mb-3">📈 Celkové statistiky</h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <div class="text-sm text-gray-600">Dokončeno zápasů</div>
+                            <div class="text-2xl font-bold">${finishedMatches.length} / ${totalMatches}</div>
+                            <div class="text-sm text-blue-600">${progress}%</div>
+                        </div>
+                        
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <div class="text-sm text-gray-600">Průměrné skóre zápasu</div>
+                            <div class="text-2xl font-bold">${avgSets}</div>
+                            <div class="text-sm text-green-600">setů celkem</div>
+                        </div>
+                        
+                        <div class="bg-purple-50 p-4 rounded-lg">
+                            <div class="text-sm text-gray-600">Nejdelší série výher</div>
+                            <div class="text-2xl font-bold">${bestStreak.max} 🔥</div>
+                            <div class="text-sm text-purple-600">${bestStreak.name}</div>
+                        </div>
+                        
+                        <div class="bg-orange-50 p-4 rounded-lg">
+                            <div class="text-sm text-gray-600">Celkem účastníků</div>
+                            <div class="text-2xl font-bold">${participants.length}</div>
+                        </div>
+                    </div>
+                    
+                    ${highestScore.player1 ? `
+                        <div class="bg-yellow-50 p-4 rounded-lg">
+                            <div class="text-sm text-gray-600 mb-2">🎯 Nejvyšší skóre zápasu</div>
+                            <div class="font-bold">${highestScore.player1.name} ${highestScore.score1}:${highestScore.score2} ${highestScore.player2.name}</div>
+                            <div class="text-sm text-gray-600">Celkem ${highestScore.score1 + highestScore.score2} setů</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${mostDraws.count > 0 ? `
+                        <div class="bg-gray-100 p-4 rounded-lg">
+                            <div class="text-sm text-gray-600">⚖️ Nejvíce remíz</div>
+                            <div class="text-xl font-bold">${mostDraws.count}x</div>
+                            <div class="text-sm text-gray-600">${mostDraws.name}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${mostProductive.total > 0 ? `
+                        <div class="bg-indigo-50 p-4 rounded-lg">
+                            <div class="text-sm text-gray-600">⚡ Nejproduktivnější hráč</div>
+                            <div class="text-xl font-bold">${mostProductive.total} setů</div>
+                            <div class="text-sm text-indigo-600">${mostProductive.name}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${matchesWithNotes.length > 0 ? `
+                        <div class="bg-yellow-50 p-4 rounded-lg">
+                            <div class="text-sm text-gray-600">📝 Zápasy s poznámkami</div>
+                            <div class="text-xl font-bold">${matchesWithNotes.length}</div>
+                            <div class="text-xs text-gray-600 mt-2 max-h-32 overflow-y-auto">
+                                ${matchesWithNotes.slice(0, 5).map(m => `
+                                    <div class="mb-1">• ${m.player1.name} vs ${m.player2.name}: ${m.note}</div>
+                                `).join('')}
+                                ${matchesWithNotes.length > 5 ? `<div class="text-gray-500">... a ${matchesWithNotes.length - 5} dalších</div>` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            document.getElementById('statsModal').classList.remove('hidden');
+        };
+        window.showSearch = () => {
+            document.getElementById('searchModal').classList.remove('hidden');
+            document.getElementById('searchInput').focus();
+        };
+        
+        window.closeSearch = () => {
+            document.getElementById('searchModal').classList.add('hidden');
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '';
+        };
+        
+        window.performSearch = () => {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const results = document.getElementById('searchResults');
+            
+            if (!query) {
+                results.innerHTML = '';
+                return;
+            }
+            
+            const system = window.tournamentData.system;
+            let allMatches = [];
+            
+            if (system === 'groups') {
+                window.tournamentData.groups.forEach(group => {
+                    group.matches.forEach(match => {
+                        if (match.player1.name.toLowerCase().includes(query) || 
+                            match.player2.name.toLowerCase().includes(query)) {
+                            allMatches.push({...match, groupName: group.name});
+                        }
+                    });
+                });
+            } else {
+                allMatches = window.tournamentData.matches.filter(match => 
+                    match.player1.name.toLowerCase().includes(query) || 
+                    match.player2.name.toLowerCase().includes(query)
+                );
+            }
+            
+            if (allMatches.length === 0) {
+                results.innerHTML = '<p class="text-gray-500 text-center py-4">Žádné výsledky</p>';
+                return;
+            }
+            
+            results.innerHTML = allMatches.map(match => `
+                <div class="bg-gray-50 p-3 rounded-lg mb-2">
+                    ${match.groupName ? `<div class="text-xs text-gray-500 mb-1">${match.groupName}</div>` : ''}
+                    <div class="flex items-center justify-between">
+                        <span class="font-medium">${match.player1.name}</span>
+                        <span class="font-bold">${match.finished ? `${match.score1}:${match.score2}` : 'vs'}</span>
+                        <span class="font-medium">${match.player2.name}</span>
+                    </div>
+                </div>
+            `).join('');
+        };
+        
+        // Statistiky
+        window.showStats = () => {
+            const participants = window.tournamentData.participants;
+            const system = window.tournamentData.system;
+            let allMatches = [];
+            
+            if (system === 'groups') {
+                window.tournamentData.groups.forEach(g => {
+                    allMatches = allMatches.concat(g.matches);
+                });
+            } else {
+                allMatches = window.tournamentData.matches;
+            }
+            
+            const finishedMatches = allMatches.filter(m => m.finished);
+            const totalMatches = allMatches.length;
+            const progress = totalMatches > 0 ? Math.round((finishedMatches.length / totalMatches) * 100) : 0;
+            
+            // Průměrné skóre
+            let totalScore = 0;
+            finishedMatches.forEach(m => {
+                totalScore += m.score1 + m.score2;
+            });
+            const avgScore = finishedMatches.length > 0 ? (totalScore / finishedMatches.length).toFixed(1) : 0;
+            
+            // Nejdelší série výher
+            const streaks = {};
+            participants.forEach(p => {
+                streaks[p.id] = { current: 0, max: 0 };
+            });
+            
+            finishedMatches.forEach(match => {
+                if (match.score1 > match.score2) {
+                    streaks[match.player1.id].current++;
+                    streaks[match.player1.id].max = Math.max(streaks[match.player1.id].max, streaks[match.player1.id].current);
+                    streaks[match.player2.id].current = 0;
+                } else if (match.score2 > match.score1) {
+                    streaks[match.player2.id].current++;
+                    streaks[match.player2.id].max = Math.max(streaks[match.player2.id].max, streaks[match.player2.id].current);
+                    streaks[match.player1.id].current = 0;
+                }
+            });
+            
+            const bestStreak = Object.entries(streaks).reduce((best, [id, streak]) => {
+                return streak.max > best.max ? { id, max: streak.max } : best;
+            }, { id: null, max: 0 });
+            
+            const bestStreakPlayer = participants.find(p => p.id == bestStreak.id);
+            
+            const content = document.getElementById('statsContent');
+            content.innerHTML = `
+                <div class="space-y-4">
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">Dokončeno zápasů</div>
+                        <div class="text-2xl font-bold">${finishedMatches.length} / ${totalMatches}</div>
+                        <div class="text-sm text-gray-600">${progress}%</div>
+                    </div>
+                    
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">Průměrné skóre zápasu</div>
+                        <div class="text-2xl font-bold">${avgScore}</div>
+                    </div>
+                    
+                    ${bestStreakPlayer ? `
+                        <div class="bg-purple-50 p-4 rounded-lg">
+                            <div class="text-sm text-gray-600">Nejdelší série výher</div>
+                            <div class="text-2xl font-bold">${bestStreak.max}</div>
+                            <div class="text-sm text-gray-600">${bestStreakPlayer.name}</div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="bg-orange-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">Celkem účastníků</div>
+                        <div class="text-2xl font-bold">${participants.length}</div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('statsModal').classList.remove('hidden');
+        };
+        
+        window.closeStats = () => {
+            document.getElementById('statsModal').classList.add('hidden');
+        };
+        
+        // QR kód
+        window.showQRCode = () => {
+            const data = JSON.stringify(window.tournamentData);
+            const encodedData = btoa(encodeURIComponent(data));
+            const url = window.location.href.split('?')[0] + '?data=' + encodedData;
+            
+            const container = document.getElementById('qrCodeContainer');
+            container.innerHTML = `
+                <div class="bg-gray-100 p-4 rounded-lg inline-block">
+                    <div class="text-xs break-all mb-2">${url.substring(0, 50)}...</div>
+                    <p class="text-sm text-gray-600 mt-2">Zkopírujte URL pro sdílení</p>
+                    <button onclick="copyToClipboard('${url}')" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg">
+                        Zkopírovat odkaz
+                    </button>
+                </div>
+            `;
+            
+            document.getElementById('qrModal').classList.remove('hidden');
+        };
+        
+        window.closeQR = () => {
+            document.getElementById('qrModal').classList.add('hidden');
+        };
+        
+        window.copyToClipboard = (text) => {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('Odkaz zkopírován!');
+            });
+        };
+        
+        // Duplikovat turnaj
+        window.duplicateTournament = () => {
+            if (!confirm('Vytvořit nový turnaj se stejnými účastníky a nastavením?')) return;
+            
+            const newData = {
+                name: window.tournamentData.name + ' (kopie)',
+                system: window.tournamentData.system,
+                numGroups: window.tournamentData.numGroups,
+                playoffType: window.tournamentData.playoffType,
+                pointSystem: window.tournamentData.pointSystem,
+                participants: window.tournamentData.participants.map(p => ({
+                    ...p,
+                    wins: 0,
+                    losses: 0,
+                    setsWon: 0,
+                    setsLost: 0,
+                    points: 0
+                })),
+                matches: [],
+                groups: [],
+                playoffMatches: [],
+                swissRound: 1,
+                step: 'setup',
+                history: []
+            };
+            
+            Object.assign(window.tournamentData, newData);
+            saveData();
+            
+            document.getElementById('matchesSection').classList.add('hidden');
+            document.getElementById('playoffSection').classList.add('hidden');
+            document.getElementById('setupSection').classList.remove('hidden');
+            document.getElementById('tournamentName').value = newData.name;
+            
+            renderParticipants();
+            showNotification('Turnaj duplikován!');
+        };
+        
+        // Načíst data z URL (QR kód)
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const dataParam = urlParams.get('data');
+            
+            if (dataParam) {
+                try {
+                    const decodedData = decodeURIComponent(atob(dataParam));
+                    const data = JSON.parse(decodedData);
+                    Object.assign(window.tournamentData, data);
+                    saveData();
+                    showNotification('Data načtena z odkazu!');
+                    
+                    // Odstranit parametr z URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    
+                    // Zobrazit odpovídající sekci
+                    if (data.step === 'matches') {
+                        document.getElementById('setupSection').classList.add('hidden');
+                        document.getElementById('matchesSection').classList.remove('hidden');
+                        renderParticipants();
+                    }
+                } catch (error) {
+                    console.error('Chyba při načítání dat z URL:', error);
+                }
+            }
+        });
+    <!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Profesionální správa badmintonových turnajů - rozlosování, výsledky, statistiky">
+    <meta name="theme-color" content="#3b82f6">
+    <title>Rozlosování turnaje - Badminton</title>
+    
+    <!-- PWA Support -->
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏸</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏸</text></svg>">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Badminton">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .hidden { display: none; }
+        
+        /* Dark mode */
+        body.dark-mode {
+            background: linear-gradient(to bottom right, #1a202c, #2d3748);
+        }
+        body.dark-mode .bg-white {
+            background-color: #2d3748 !important;
+            color: #e2e8f0;
+        }
+        body.dark-mode .text-gray-800 {
+            color: #e2e8f0 !important;
+        }
+        body.dark-mode .text-gray-700 {
+            color: #cbd5e0 !important;
+        }
+        body.dark-mode .text-gray-600 {
+            color: #a0aec0 !important;
+        }
+        body.dark-mode .bg-gray-50 {
+            background-color: #374151 !important;
+        }
+        body.dark-mode input, body.dark-mode select {
+            background-color: #374151;
+            color: #e2e8f0;
+            border-color: #4a5568;
+        }
+        
+        /* Progress bar */
+        .progress-bar {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            transition: width 0.3s ease;
+        }
+        
+        /* Win/Loss highlighting */
+        .row-win {
+            background-color: #dcfce7 !important;
+        }
+        .row-loss {
+            background-color: #fee2e2 !important;
+        }
+        .row-draw {
+            background-color: #fef3c7 !important;
+        }
+        body.dark-mode .row-win {
+            background-color: #064e3b !important;
+        }
+        body.dark-mode .row-loss {
+            background-color: #7f1d1d !important;
+        }
+        body.dark-mode .row-draw {
+            background-color: #713f12 !important;
+        }
+        
+        /* Highlighting pro pozice v tabulce */
+        .position-gold {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%) !important;
+        }
+        .position-silver {
+            background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%) !important;
+        }
+        .position-bronze {
+            background: linear-gradient(135deg, #cd7f32 0%, #e8a87c 100%) !important;
+        }
+        
+        /* Právě hraje animace */
+        .playing-now {
+            background: linear-gradient(90deg, #fef3c7, #fde68a, #fef3c7) !important;
+            background-size: 200% 100%;
+            animation: playing-pulse 2s ease-in-out infinite;
+            border-left: 4px solid #f59e0b !important;
+        }
+        
+        @keyframes playing-pulse {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        
+        .playing-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #f59e0b;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            animation: badge-pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes badge-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* Print styles */
+        @media print {
+            body {
+                background: white !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .bg-gradient-to-r, .bg-gradient-to-br {
+                background: white !important;
+                color: black !important;
+            }
+            .bg-white {
+                box-shadow: none !important;
+            }
+            .rounded-xl {
+                border: 1px solid #e5e7eb;
+            }
+            input {
+                border: none !important;
+                background: transparent !important;
+                text-align: center;
+                font-weight: bold;
+            }
+            .progress-bar {
+                display: none;
+            }
+            h1, h2, h3 {
+                color: black !important;
+            }
+            /* Page break mezi skupinami */
+            .page-break {
+                page-break-before: always;
+            }
+            /* Lepší formátování tabulek */
+            table {
+                page-break-inside: avoid;
+            }
+            .bg-blue-600 {
+                background: #2563eb !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+        
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        /* QR Code modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+        }
+        body.dark-mode .modal-content {
+            background: #2d3748;
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div class="max-w-6xl mx-auto">
+        <!-- Hlavička -->
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg p-6 mb-6 text-white">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold flex items-center gap-3">
+                        🏸 Rozlosování turnaje
+                    </h1>
+                    <p class="text-blue-100 mt-2">Badmintonové turnaje - profesionální správa</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="toggleDarkMode()" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition-colors" title="Přepnout tmavý režim">
+                        🌙
+                    </button>
+                    <button onclick="showStats()" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition-colors">
+                        📊 Statistiky
+                    </button>
+                    <button onclick="exportData()" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition-colors">
+                        📥 Export
+                    </button>
+                    <label class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg font-semibold transition-colors cursor-pointer">
+                        📤 Import
+                        <input type="file" accept=".json" onchange="importData(event)" class="hidden">
+                    </label>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Bodový systém</label>
+                        <select id="pointSystem" 
+                            class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                            <option value="2">2 body za výhru, 1 za remízu, 0 za prohru</option>
+                            <option value="3">3 body za výhru, 1 za remízu, 0 za prohru</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sekce nastavení -->
+        <div id="setupSection" class="space-y-6">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">⚙️ Nastavení turnaje</h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Název turnaje</label>
+                        <input type="text" id="tournamentName" 
+                            class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                            placeholder="Např. Vánoční turnaj 2025">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Herní systém</label>
+                        <select id="systemSelect" onchange="changeSystem()" 
+                            class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                            <option value="roundrobin">Každý s každým</option>
+                            <option value="groups">Skupiny + Play-off</option>
+                            <option value="swiss">Švýcarský systém</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Bodový systém</label>
+                        <select id="pointSystem" 
+                            class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                            <option value="2">2 body za výhru, 1 za remízu, 0 za prohru</option>
+                            <option value="3">3 body za výhru, 1 za remízu, 0 za prohru</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Pravidla tie-breaku (při shodě bodů)</label>
+                        <select id="tieBreakRules" 
+                            class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                            <option value="wins-sets-direct">1. Počet výher → 2. Skóre setů → 3. Vzájemný zápas</option>
+                            <option value="wins-direct-sets">1. Počet výher → 2. Vzájemný zápas → 3. Skóre setů</option>
+                            <option value="sets-wins-direct">1. Skóre setů → 2. Počet výher → 3. Vzájemný zápas</option>
+                            <option value="direct-wins-sets">1. Vzájemný zápas → 2. Počet výher → 3. Skóre setů</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Určuje pořadí při stejném počtu bodů v tabulce</p>
+                    </div>
+
+                    <!-- Nastavení pro skupiny -->
+                    <div id="groupSettings" class="hidden space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Počet skupin</label>
+                            <input type="number" id="numGroups" value="2" min="2" max="4"
+                                class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Typ play-off</label>
+                            <select id="playoffType" 
+                                class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                                <option value="winners">Pouze vítězové skupin (finále, o 3. místo...)</option>
+                                <option value="half">Horní půlka vs spodní půlka</option>
+                                <option value="full">Celkový pavouk všech účastníků</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Info o švýcarském systému -->
+                    <div id="swissInfo" class="hidden bg-blue-50 p-4 rounded-lg">
+                        <p class="text-sm text-blue-800">
+                            <strong>Švýcarský systém:</strong> Po každém kole se hráči párují podle aktuálního pořadí. 
+                            Počet kol se vypočítá automaticky podle počtu účastníků.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Účastníci -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                    👥 Účastníci (<span id="participantCount">0</span>)
+                </h2>
+
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="newParticipant" 
+                        class="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                        placeholder="Jméno účastníka"
+                        onkeypress="if(event.key==='Enter') addParticipant()">
+                    <button onclick="addParticipant()" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors">
+                        Přidat
+                    </button>
+                </div>
+
+                <div id="participantsList" class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
+                </div>
+
+                <button onclick="startTournament()" id="startButton"
+                    class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors hidden">
+                    ▶️ Spustit turnaj
+                </button>
+            </div>
+        </div>
+
+        <!-- Sekce zápasů -->
+        <div id="matchesSection" class="hidden space-y-6">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-800" id="tournamentTitle"></h2>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="showSearch()" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-4 py-2 rounded-lg no-print">
+                            🔍 Hledat
+                        </button>
+                        <button onclick="editRounds()" id="editRoundsBtn" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg no-print">
+                            ✏️ Upravit kola
+                        </button>
+                        <button onclick="generateNextRound()" id="nextRoundBtn" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg no-print">
+                            Další kolo
+                        </button>
+                        <button onclick="generatePlayoff()" id="playoffBtn" class="hidden bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-2 rounded-lg no-print">
+                            Generovat Play-off
+                        </button>
+                        <button onclick="duplicateTournament()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg no-print">
+                            📋 Duplikovat
+                        </button>
+                        <button onclick="window.print()" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg no-print">
+                            🖨️ Tisk
+                        </button>
+                        <button onclick="exportToPDF()" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg no-print">
+                            📄 PDF
+                        </button>
+                        <button onclick="showQRCode()" class="bg-orange-600 hover:bg-orange-700 text-white font-semibold px-4 py-2 rounded-lg no-print">
+                            📱 QR
+                        </button>
+                        <button onclick="exportData()" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg no-print">
+                            📥
+                        </button>
+                        <button onclick="resetTournament()" class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg no-print">
+                            Reset
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Progress bar -->
+                <div id="progressBar" class="mb-4">
+                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                        <span>Průběh turnaje</span>
+                        <span id="progressText">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Obsah podle systému -->
+            <div id="matchesContent"></div>
+        </div>
+
+        <!-- Sekce play-off -->
+        <div id="playoffSection" class="hidden space-y-6">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-gray-800">🏆 Play-off</h2>
+                    <div class="flex gap-2">
+                        <button onclick="backToGroups()" class="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-4 py-2 rounded-lg">
+                            ← Zpět na skupiny
+                        </button>
+                        <button onclick="exportData()" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg">
+                            📥 Export
+                        </button>
+                        <button onclick="resetTournament()" class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg">
+                            Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="playoffContent"></div>
+        </div>
+
+        <!-- Modal pro vyhledávání -->
+        <div id="searchModal" class="modal hidden" onclick="if(event.target === this) closeSearch()">
+            <div class="modal-content">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold">🔍 Vyhledat hráče/zápas</h3>
+                    <button onclick="closeSearch()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                <input type="text" id="searchInput" oninput="performSearch()" 
+                    class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none mb-4"
+                    placeholder="Zadejte jméno hráče...">
+                <div id="searchResults" class="max-h-96 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <!-- Modal pro statistiky -->
+        <div id="statsModal" class="modal hidden" onclick="if(event.target === this) closeStats()">
+            <div class="modal-content">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold">📊 Detailní statistiky</h3>
+                    <button onclick="closeStats()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                <div id="statsContent"></div>
+            </div>
+        </div>
+
+        <!-- Modal pro historii -->
+        <div id="historyModal" class="modal hidden" onclick="if(event.target === this) closeHistory()">
+            <div class="modal-content">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold">📜 Historie změn</h3>
+                    <button onclick="closeHistory()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                <div id="historyContent" class="max-h-96 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <!-- Modal pro úpravu kol -->
+        <div id="editRoundsModal" class="modal hidden" onclick="if(event.target === this) closeEditRounds()">
+            <div class="modal-content max-w-3xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold">✏️ Upravit rozlosování kol</h3>
+                    <button onclick="closeEditRounds()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                <div id="editRoundsContent" class="max-h-96 overflow-y-auto"></div>
+                <div class="mt-4 flex justify-end gap-2">
+                    <button onclick="closeEditRounds()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
+                        Zrušit
+                    </button>
+                    <button onclick="saveRoundEdits()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                        💾 Uložit změny
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal pro QR kód -->
+        <div id="qrModal" class="modal hidden" onclick="if(event.target === this) closeQR()">
+            <div class="modal-content text-center">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold">📱 QR kód pro sdílení</h3>
+                    <button onclick="closeQR()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+                <div id="qrCodeContainer" class="mb-4"></div>
+                <p class="text-sm text-gray-600">Naskenujte QR kód pro import dat</p>
+            </div>
+        </div>
+
+        <!-- Notifikace -->
+        <div id="notificationContainer"></div>
+        
+        <!-- PWA Install prompt -->
+        <div id="pwaInstallPrompt" class="hidden fixed bottom-4 right-4 bg-white rounded-lg shadow-2xl p-4 max-w-sm z-50 border-2 border-blue-500">
+            <div class="flex items-start gap-3">
+                <div class="text-4xl">📱</div>
+                <div class="flex-1">
+                    <h4 class="font-bold text-gray-800 mb-1">Instalovat aplikaci?</h4>
+                    <p class="text-sm text-gray-600 mb-3">Přidejte si Badminton Turnaje na plochu pro rychlý přístup!</p>
+                    <div class="flex gap-2">
+                        <button onclick="installPWA()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold text-sm">
+                            Instalovat
+                        </button>
+                        <button onclick="dismissPWAPrompt()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded font-semibold text-sm">
+                            Později
+                        </button>
+                    </div>
+                </div>
+                <button onclick="dismissPWAPrompt()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PWA Registration Script -->
+    <script>
+        // Service Worker registrace
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registrován:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('❌ Service Worker registrace selhala:', error);
+                    });
+            });
+        }
+        
+        // PWA Install prompt
+        let deferredPrompt;
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Zobrazit install prompt po 3 sekundách (pokud už nebyl zamítnut)
+            if (!localStorage.getItem('pwaPromptDismissed')) {
+                setTimeout(() => {
+                    document.getElementById('pwaInstallPrompt').classList.remove('hidden');
+                }, 3000);
+            }
+        });
+        
+        window.installPWA = async () => {
+            if (!deferredPrompt) return;
+            
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            
+            if (outcome === 'accepted') {
+                console.log('✅ PWA instalována');
+            }
+            
+            deferredPrompt = null;
+            document.getElementById('pwaInstallPrompt').classList.add('hidden');
+        };
+        
+        window.dismissPWAPrompt = () => {
+            document.getElementById('pwaInstallPrompt').classList.add('hidden');
+            localStorage.setItem('pwaPromptDismissed', 'true');
+        };
+        
+        // Detekce standalone módu
+        window.addEventListener('DOMContentLoaded', () => {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
+                || window.navigator.standalone 
+                || document.referrer.includes('android-app://');
+            
+            if (isStandalone) {
+                console.log('✅ Aplikace běží v standalone módu');
+            }
+        });
+    </script>
+
+    <!-- Moduly -->
+    <script type="module" src="./modules/storage.js"></script>
+    <script type="module" src="./modules/setup.js"></script>
+    <script type="module" src="./modules/roundrobin.js"></script>
+    <script type="module" src="./modules/groups.js"></script>
+    <script type="module" src="./modules/swiss.js"></script>
+    <script type="module" src="./modules/playoff.js"></script>
+    <script type="module" src="./modules/utils.js"></script>
+
+    <script type="module">
+        // Globální data
+        window.tournamentData = {
+            name: '',
+            system: 'roundrobin',
+            numGroups: 2,
+            playoffType: 'winners',
+            pointSystem: 2,
+            tieBreakRules: 'wins-sets-direct',
+            participants: [],
+            matches: [],
+            groups: [],
+            playoffMatches: [],
+            swissRound: 1,
+            step: 'setup',
+            history: []
+        };
+
+        // Import modulů
+        import { loadData, saveData, exportToFile, importFromFile } from './modules/storage.js';
+        import { renderParticipants, addParticipant as addP, removeParticipant } from './modules/setup.js';
+        import { generateRoundRobin, renderRoundRobin } from './modules/roundrobin.js';
+        import { generateGroups, renderGroups } from './modules/groups.js';
+        import { generateSwiss, renderSwiss, nextSwissRound } from './modules/swiss.js';
+        import { generatePlayoffMatches, renderPlayoff } from './modules/playoff.js';
+
+        // Dark mode
+        window.toggleDarkMode = () => {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDark);
+        };
+        
+        // Export do PDF (jednoduchá verze - používá print dialog)
+        window.exportToPDF = () => {
+            // Přidat speciální třídu pro PDF export
+            document.body.classList.add('pdf-export');
+            
+            // Nastavit titulek dokumentu
+            const originalTitle = document.title;
+            document.title = window.tournamentData.name || 'Turnaj';
+            
+            // Spustit tisk
+            window.print();
+            
+            // Obnovit
+            document.title = originalTitle;
+            document.body.classList.remove('pdf-export');
+        };
+        
+        // Vyhledávání
+        window.showSearch = () => {
+            document.getElementById('searchModal').classList.remove('hidden');
+            document.getElementById('searchInput').focus();
+        };
+        
+        window.closeSearch = () => {
+            document.getElementById('searchModal').classList.add('hidden');
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '';
+        };
+        
+        window.performSearch = () => {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const results = document.getElementById('searchResults');
+            
+            if (!query) {
+                results.innerHTML = '';
+                return;
+            }
+            
+            const system = window.tournamentData.system;
+            let allMatches = [];
+            
+            // Sbírat zápasy podle systému
+            if (system === 'groups') {
+                window.tournamentData.groups.forEach(group => {
+                    group.matches.forEach(match => {
+                        if (match.player1.name.toLowerCase().includes(query) || 
+                            match.player2.name.toLowerCase().includes(query)) {
+                            allMatches.push({...match, groupName: group.name});
+                        }
+                    });
+                });
+            } else {
+                allMatches = window.tournamentData.matches.filter(match => 
+                    match.player1.name.toLowerCase().includes(query) || 
+                    match.player2.name.toLowerCase().includes(query)
+                );
+            }
+            
+            if (allMatches.length === 0) {
+                results.innerHTML = '<p class="text-gray-500 text-center py-4">Žádné výsledky</p>';
+                return;
+            }
+            
+            results.innerHTML = allMatches.map(match => `
+                <div class="bg-gray-50 p-3 rounded-lg mb-2">
+                    ${match.groupName ? `<div class="text-xs text-gray-500 mb-1">${match.groupName}</div>` : ''}
+                    ${match.round ? `<div class="text-xs text-gray-500 mb-1">Kolo ${match.round}</div>` : ''}
+                    <div class="flex items-center justify-between">
+                        <span class="font-medium ${match.player1.name.toLowerCase().includes(query) ? 'text-blue-600' : ''}">${match.player1.name}</span>
+                        <span class="font-bold ${match.finished ? 'text-green-600' : 'text-gray-400'}">${match.finished ? `${match.score1}:${match.score2}` : 'vs'}</span>
+                        <span class="font-medium ${match.player2.name.toLowerCase().includes(query) ? 'text-blue-600' : ''}">${match.player2.name}</span>
+                    </div>
+                    ${match.note ? `<div class="text-xs text-gray-600 italic mt-1">📝 ${match.note}</div>` : ''}
+                </div>
+            `).join('');
+        };
+        
+        // Přidat poznámku k zápasu
+        window.addMatchNote = (matchId, groupId = null) => {
+            let match;
+            
+            if (groupId !== null) {
+                const group = window.tournamentData.groups.find(g => g.id === groupId);
+                match = group?.matches.find(m => m.id === matchId);
+            } else {
+                match = window.tournamentData.matches.find(m => m.id === matchId);
+            }
+            
+            const currentNote = match?.note || '';
+            const note = prompt('Zadejte poznámku k zápasu (např. kontumace, zranění):', currentNote);
+            
+            if (note === null) return; // Uživatel zrušil
+            
+            if (groupId !== null) {
+                window.tournamentData.groups = window.tournamentData.groups.map(g => {
+                    if (g.id === groupId) {
+                        return {
+                            ...g,
+                            matches: g.matches.map(m => {
+                                if (m.id === matchId) {
+                                    return { ...m, note: note.trim() };
+                                }
+                                return m;
+                            })
+                        };
+                    }
+                    return g;
+                });
+                saveData();
+                renderGroups();
+            } else {
+                window.tournamentData.matches = window.tournamentData.matches.map(m => {
+                    if (m.id === matchId) {
+                        return { ...m, note: note.trim() };
+                    }
+                    return m;
+                });
+                saveData();
+                
+                // Re-render podle systému
+                if (window.tournamentData.system === 'roundrobin') {
+                    renderRoundRobin();
+                } else if (window.tournamentData.system === 'swiss') {
+                    renderSwiss();
+                }
+            }
+            
+            if (note.trim()) {
+                showNotification('📝 Poznámka přidána', 'success');
+            } else {
+                showNotification('🗑️ Poznámka smazána', 'warning');
+            }
+        };
+        
+        // Načtení dat při startu
+        window.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            renderParticipants();
+            changeSystem();
+            
+            // Načíst dark mode z localStorage
+            if (localStorage.getItem('darkMode') === 'true') {
+                document.body.classList.add('dark-mode');
+            }
+        });
+
+        // Změna systému
+        window.changeSystem = () => {
+            const system = document.getElementById('systemSelect').value;
+            window.tournamentData.system = system;
+            
+            document.getElementById('groupSettings').classList.toggle('hidden', system !== 'groups');
+            document.getElementById('swissInfo').classList.toggle('hidden', system !== 'swiss');
+            saveData();
+        };
+
+        // Přidat účastníka
+        window.addParticipant = () => {
+            addP();
+            const lastParticipant = window.tournamentData.participants[window.tournamentData.participants.length - 1];
+            if (lastParticipant) {
+                addToHistory('participant_add', { name: lastParticipant.name });
+            }
+            renderParticipants();
+        };
+
+        // Odstranit účastníka
+        window.removeParticipant = (id) => {
+            const participant = window.tournamentData.participants.find(p => p.id === id);
+            removeParticipant(id);
+            if (participant) {
+                addToHistory('participant_remove', { name: participant.name });
+            }
+            renderParticipants();
+        };
+
+        // Spustit turnaj
+        window.startTournament = () => {
+            const name = document.getElementById('tournamentName').value.trim();
+            const participants = window.tournamentData.participants;
+
+            if (!name) {
+                showNotification('❌ Zadejte název turnaje!', 'error');
+                return;
+            }
+
+            if (participants.length < 2) {
+                showNotification('❌ Přidejte alespoň 2 účastníky!', 'error');
+                return;
+            }
+
+            window.tournamentData.name = name;
+            window.tournamentData.step = 'matches';
+            window.tournamentData.pointSystem = parseInt(document.getElementById('pointSystem').value);
+            window.tournamentData.tieBreakRules = document.getElementById('tieBreakRules').value;
+
+            const system = window.tournamentData.system;
+
+            if (system === 'roundrobin') {
+                generateRoundRobin();
+                renderRoundRobin();
+                addToHistory('tournament_start', { system: 'Každý s každým', participants: participants.length });
+                showNotification(`✅ Turnaj "${name}" spuštěn!`, 'success');
+            } else if (system === 'groups') {
+                const numGroups = parseInt(document.getElementById('numGroups').value);
+                window.tournamentData.numGroups = numGroups;
+                window.tournamentData.playoffType = document.getElementById('playoffType').value;
+                generateGroups(numGroups);
+                renderGroups();
+                addToHistory('tournament_start', { system: 'Skupiny', numGroups: numGroups, participants: participants.length });
+                showNotification(`✅ Skupiny vygenerovány! ${numGroups} skupiny`, 'success');
+            } else if (system === 'swiss') {
+                generateSwiss();
+                renderSwiss();
+                addToHistory('tournament_start', { system: 'Švýcarský systém', participants: participants.length });
+                showNotification(`✅ Švýcarský systém spuštěn!`, 'success');
+            }
+
+            document.getElementById('setupSection').classList.add('hidden');
+            document.getElementById('matchesSection').classList.remove('hidden');
+            document.getElementById('tournamentTitle').textContent = name;
+
+            saveData();
+        };
+
+        // Generovat další kolo (švýcar)
+        window.generateNextRound = () => {
+            if (window.tournamentData.system === 'swiss') {
+                nextSwissRound();
+                renderSwiss();
+            }
+        };
+
+        // Generovat play-off
+        window.generatePlayoff = () => {
+            generatePlayoffMatches();
+            addToHistory('playoff_generate', { type: window.tournamentData.playoffType });
+            document.getElementById('matchesSection').classList.add('hidden');
+            document.getElementById('playoffSection').classList.remove('hidden');
+            renderPlayoff();
+        };
+
+        // Zpět na skupiny
+        window.backToGroups = () => {
+            document.getElementById('playoffSection').classList.add('hidden');
+            document.getElementById('matchesSection').classList.remove('hidden');
+        };
+
+        // Reset turnaje
+        window.resetTournament = () => {
+            if (!confirm('Opravdu chcete resetovat celý turnaj?')) return;
+
+            window.tournamentData.step = 'setup';
+            window.tournamentData.matches = [];
+            window.tournamentData.groups = [];
+            window.tournamentData.playoffMatches = [];
+            window.tournamentData.swissRound = 1;
+
+            // Reset stats účastníků
+            window.tournamentData.participants = window.tournamentData.participants.map(p => ({
+                ...p,
+                wins: 0,
+                losses: 0,
+                setsWon: 0,
+                setsLost: 0,
+                points: 0
+            }));
+
+            document.getElementById('setupSection').classList.remove('hidden');
+            document.getElementById('matchesSection').classList.add('hidden');
+            document.getElementById('playoffSection').classList.add('hidden');
+
+            saveData();
+            renderParticipants();
+            addToHistory('tournament_reset', {});
+            showNotification('🔄 Turnaj resetován', 'warning');
+        };
+
+        // Export dat
+        window.exportData = () => {
+            exportToFile();
+            addToHistory('data_export', {});
+        };
+
+        // Import dat
+        window.importData = (event) => {
+            importFromFile(event, () => {
+                addToHistory('data_import', {});
+                renderParticipants();
+                changeSystem();
+                
+                if (window.tournamentData.step === 'matches') {
+                    document.getElementById('setupSection').classList.add('hidden');
+                    document.getElementById('matchesSection').classList.remove('hidden');
+                    document.getElementById('tournamentTitle').textContent = window.tournamentData.name;
+                    
+                    const system = window.tournamentData.system;
+                    if (system === 'roundrobin') renderRoundRobin();
+                    else if (system === 'groups') renderGroups();
+                    else if (system === 'swiss') renderSwiss();
+                } else if (window.tournamentData.step === 'playoff') {
+                    document.getElementById('setupSection').classList.add('hidden');
+                    document.getElementById('playoffSection').classList.remove('hidden');
+                    renderPlayoff();
+                }
+            });
+        };
+    </script>
+</body>
+</html>
