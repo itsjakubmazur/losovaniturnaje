@@ -151,5 +151,43 @@ const Utils = {
             month: 'long',
             year: 'numeric'
         });
+    },
+
+    // Generování QR kódu (pomocí Google Charts API)
+    generateQRCode(text, size = 200) {
+        return `https://chart.googleapis.com/chart?cht=qr&chl=${encodeURIComponent(text)}&chs=${size}x${size}`;
+    },
+
+    // Sdílení turnaje pomocí QR kódu
+    showQRCode() {
+        const currentUrl = window.location.href;
+        const tournamentInfo = `${State.current.tournamentName} - ${State.current.tournamentDate}`;
+
+        const modal = document.createElement('div');
+        modal.className = 'modal show';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>📱 Sdílet turnaj</h3>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+                </div>
+                <div style="text-align: center; padding: 20px;">
+                    <p style="margin-bottom: 20px; color: var(--text-muted);">
+                        Naskenujte QR kód pro zobrazení turnaje
+                    </p>
+                    <img src="${this.generateQRCode(currentUrl, 256)}"
+                         alt="QR kód"
+                         style="max-width: 100%; border: 2px solid var(--border); border-radius: 12px; padding: 10px; background: white;">
+                    <div style="margin-top: 20px; padding: 15px; background: var(--bg); border-radius: 8px;">
+                        <strong>${tournamentInfo}</strong><br>
+                        <small style="color: var(--text-muted); word-break: break-all;">${currentUrl}</small>
+                    </div>
+                    <button class="btn btn-primary" style="margin-top: 15px;" onclick="navigator.clipboard.writeText('${currentUrl}').then(() => Utils.showNotification('Odkaz zkopírován'))">
+                        📋 Kopírovat odkaz
+                    </button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
     }
 };

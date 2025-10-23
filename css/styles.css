@@ -589,11 +589,66 @@ tr:hover { background: var(--bg); }
 .tab:hover { color: var(--primary); }
 .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
+/* Responsive Design - Mobile First */
+@media (max-width: 1024px) {
+    .container { padding: 15px; }
+    .stats-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+}
+
 @media (max-width: 768px) {
+    .header { padding: 20px; }
     .header h1 { font-size: 1.5em; }
+    .header-right { width: 100%; justify-content: center; }
+    .icon-btn { width: 45px; height: 45px; font-size: 20px; }
+
     .match-players { grid-template-columns: 1fr; }
     .input-row { grid-template-columns: 1fr; }
     .participants-grid { grid-template-columns: 1fr; }
+    .system-options { grid-template-columns: 1fr; }
+
+    .card { padding: 20px; }
+    .card h2 { font-size: 1.3em; }
+
+    .button-group { flex-direction: column; }
+    .button-group .btn { width: 100%; justify-content: center; }
+
+    .modal-content { width: 95%; padding: 20px; }
+
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+
+    table { font-size: 0.9em; }
+    th, td { padding: 8px; }
+
+    .step { min-width: 80px; font-size: 0.85em; }
+    .step-circle { width: 35px; height: 35px; }
+
+    .notification {
+        right: 10px;
+        left: 10px;
+        top: 10px;
+        max-width: calc(100% - 20px);
+    }
+}
+
+@media (max-width: 480px) {
+    .header h1 { font-size: 1.2em; }
+    .header-right { gap: 8px; }
+    .icon-btn { width: 40px; height: 40px; font-size: 18px; }
+
+    .stats-grid { grid-template-columns: 1fr; }
+    .stat-value { font-size: 1.5em; }
+
+    .match-card { padding: 15px; }
+    .match-header { flex-direction: column; align-items: flex-start; }
+
+    .set-row {
+        grid-template-columns: auto 1fr 1fr auto;
+        gap: 5px;
+    }
+    .set-input { padding: 6px; }
+
+    .tabs { font-size: 0.9em; }
+    .tab { padding: 10px 15px; }
 }
 
 @media print {
