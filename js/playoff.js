@@ -188,3 +188,98 @@ const Playoff = {
         return true;
     }
 };
+
+    // Render visual bracket
+    renderBracket() {
+        if (!State.current.playoffBracket) return '';
+        
+        const totalRounds = State.current.playoffBracket.totalRounds;
+        const rounds = [];
+        
+        // Organize matches by knockout round
+        for (let r = 0; r < totalRounds; r++) {
+            const roundMatches = State.current.matches.filter(m => m.knockoutRound === r);
+            if (roundMatches.length > 0) {
+                rounds.push({
+                    round: r,
+                    name: this.getRoundName(r, totalRounds),
+                    matches: roundMatches
+                });
+            }
+        }
+        
+        if (rounds.length === 0) return '';
+        
+        return `
+            <div class="card">
+                <h2>🏆 Playoff Pavouk</h2>
+                <div class="bracket-container">
+                    <div class="bracket">
+                        ${rounds.map(round => this.renderBracketRound(round)).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+    
+    renderBracketRound(round) {
+        return `
+            <div class="bracket-round">
+                <div class="bracket-round-title">${round.name}</div>
+                ${round.matches.map(match => this.renderBracketMatch(match)).join('')}
+            </div>
+        `;
+    },
+    
+    renderBracketMatch(match) {
+        const isCompleted = match.completed;
+        const isPlaying = match.playing;
+        
+        let p1Winner = false;
+        let p2Winner = false;
+        let p1Score = '';
+        let p2Score = '';
+        
+        if (isCompleted && match.sets) {
+            const p1Sets = match.sets.filter(s => s.score1 > s.score2).length;
+            const p2Sets = match.sets.filter(s => s.score2 > s.score1).length;
+            p1Winner = p1Sets > p2Sets;
+            p2Winner = p2Sets > p1Sets;
+            p1Score = p1Sets;
+            p2Score = p2Sets;
+        }
+        
+        const p1Name = match.player1?.name || match.player1 || 'TBD';
+        const p2Name = match.player2?.name || match.player2 || 'TBD';
+        const p1Seed = match.player1?.seed || '';
+        const p2Seed = match.player2?.seed || '';
+        
+        const isTBD = p1Name === 'TBD' || p2Name === 'TBD';
+        
+        return `
+            <div class="bracket-match ${isCompleted ? 'completed' : ''} ${isPlaying ? 'playing' : ''}" 
+                 onclick="scrollToMatch(${State.current.matches.indexOf(match)})"
+                 style="cursor: pointer;">
+                ${isPlaying ? '<div class="bracket-match-status">▶️ HRAJE</div>' : ''}
+                
+                <div class="bracket-player ${p1Winner ? 'winner' : isCompleted ? 'loser' : ''} ${isTBD ? 'bracket-tbd' : ''}">
+                    <div class="bracket-player-name">
+                        ${p1Seed ? `<div class="bracket-player-seed">${p1Seed}</div>` : ''}
+                        <span>${p1Name}</span>
+                    </div>
+                    ${isCompleted ? `<div class="bracket-score">${p1Score}</div>` : ''}
+                </div>
+                
+                <div class="bracket-player ${p2Winner ? 'winner' : isCompleted ? 'loser' : ''} ${isTBD ? 'bracket-tbd' : ''}">
+                    <div class="bracket-player-name">
+                        ${p2Seed ? `<div class="bracket-player-seed">${p2Seed}</div>` : ''}
+                        <span>${p2Name}</span>
+                    </div>
+                    ${isCompleted ? `<div class="bracket-score">${p2Score}</div>` : ''}
+                </div>
+                
+                ${match.knockoutRound < State.current.playoffBracket.totalRounds - 1 ? '<div class="bracket-connector"></div>' : ''}
+            </div>
+        `;
+    }
+};

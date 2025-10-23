@@ -294,6 +294,20 @@ function advancePlayoffRound() {
     }
 }
 
+function scrollToMatch(idx) {
+    // Scroll to match detail in the list
+    setTimeout(() => {
+        const matchCard = document.querySelector(`[data-match="${idx}"]`);
+        if (matchCard) {
+            matchCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            matchCard.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+            setTimeout(() => {
+                matchCard.style.backgroundColor = '';
+            }, 2000);
+        }
+    }, 100);
+}
+
 // Start app when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

@@ -329,6 +329,8 @@ const UI = {
                     <div class="progress-fill" style="width: ${progress}%"></div>
                 </div>
 
+                ${State.current.playoffBracket ? Playoff.renderBracket() : ''}
+
                 ${queue.length > 0 ? `
                     <div class="queue-section">
                         <div style="font-weight: 600; margin-bottom: 15px; color: var(--primary);">📋 Fronta čekajících (${queue.length})</div>

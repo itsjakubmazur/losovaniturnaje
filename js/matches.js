@@ -134,7 +134,7 @@ const Matches = {
         // Kompaktní verze pro dokončené zápasy
         if (isCompleted) {
             return `
-                <div class="match-card completed collapsed" id="match-${idx}">
+                <div class="match-card completed collapsed" id="match-${idx}" data-match="${idx}">
                     <div class="match-summary" onclick="toggleMatchDetail(${idx})">
                         <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
                             <span style="font-weight:bold;color:var(--text-muted);min-width:70px;">Zápas ${idx + 1}</span>
@@ -203,7 +203,7 @@ const Matches = {
 
         // Plná verze pro probíhající/nedokončené zápasy
         return `
-            <div class="match-card ${isPlaying ? 'playing' : ''}">
+            <div class="match-card ${isPlaying ? 'playing' : ''}" data-match="${idx}">
                 ${isPlaying ? '<div class="match-badge">▶️ HRAJE SE</div>' : ''}
                 
                 <div class="match-header">
