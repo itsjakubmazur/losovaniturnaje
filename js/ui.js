@@ -22,23 +22,23 @@ const UI = {
         const stepsHTML = `
             <div class="step ${State.current.step === 'setup' ? 'active' : State.current.participants.length > 0 ? 'completed' : ''}" data-step="setup">
                 <div class="step-circle">1</div>
-                <div>Nastavení</div>
+                <div>${i18n.t('step.setup')}</div>
             </div>
             <div class="step ${State.current.step === 'participants' ? 'active' : State.current.rounds.length > 0 ? 'completed' : ''}" data-step="participants">
                 <div class="step-circle">2</div>
-                <div>Účastníci</div>
+                <div>${i18n.t('step.participants')}</div>
             </div>
             <div class="step ${State.current.step === 'draw' ? 'active' : State.current.matches.length > 0 ? 'completed' : ''}" data-step="draw">
                 <div class="step-circle">3</div>
-                <div>Losování</div>
+                <div>${i18n.t('step.draw')}</div>
             </div>
             <div class="step ${State.current.step === 'matches' ? 'active' : Utils.allMatchesCompleted() ? 'completed' : ''}" data-step="matches">
                 <div class="step-circle">4</div>
-                <div>Zápasy</div>
+                <div>${i18n.t('step.matches')}</div>
             </div>
             <div class="step ${State.current.step === 'results' ? 'active' : ''}" data-step="results">
                 <div class="step-circle">5</div>
-                <div>Výsledky</div>
+                <div>${i18n.t('step.results')}</div>
             </div>
         `;
         document.getElementById('steps-container').innerHTML = stepsHTML;
@@ -46,52 +46,52 @@ const UI = {
 
     updateTitle() {
         document.getElementById('tournament-title').textContent =
-            State.current.tournamentName || 'Losovací web';
+            State.current.tournamentName || i18n.t('tournament.title');
         document.getElementById('tournament-subtitle').textContent =
             State.current.tournamentName ?
-                `${State.current.participants.length} účastníků • ${State.current.numCourts} ${State.current.numCourts === 1 ? 'kurt' : 'kurty'} • ${Utils.formatDate(State.current.tournamentDate)}` :
-                'Správa turnajů';
+                `${State.current.participants.length} ${i18n.currentLang === 'cs' ? 'účastníků' : 'participants'} • ${State.current.numCourts} ${State.current.numCourts === 1 ? 'kurt' : (i18n.currentLang === 'cs' ? 'kurty' : 'courts')} • ${Utils.formatDate(State.current.tournamentDate)}` :
+                i18n.t('tournament.subtitle');
     },
 
     renderSetup() {
         return `
             <div class="card">
-                <h2>⚙️ Základní nastavení</h2>
-                
+                <h2>⚙️ ${i18n.t('setup.title')}</h2>
+
                 <div class="input-row">
                     <div class="input-group">
-                        <label>Název turnaje *</label>
-                        <input type="text" id="tournament-name" value="${State.current.tournamentName}" 
-                               placeholder="Městský badmintonový turnaj 2025">
+                        <label>${i18n.t('setup.name')} *</label>
+                        <input type="text" id="tournament-name" value="${State.current.tournamentName}"
+                               placeholder="${i18n.currentLang === 'cs' ? 'Městský badmintonový turnaj 2025' : 'City Badminton Tournament 2025'}">
                     </div>
                     <div class="input-group">
-                        <label>Datum konání</label>
+                        <label>${i18n.t('setup.date')}</label>
                         <input type="date" id="tournament-date" value="${State.current.tournamentDate}">
                     </div>
                 </div>
 
                 <div class="input-group">
-                    <label>Herní systém</label>
+                    <label>${i18n.t('setup.system')}</label>
                     <div class="system-options">
                         <div class="system-option ${State.current.system === 'roundrobin' ? 'active' : ''}" data-system="roundrobin">
                             <div style="font-size:2.5em;">🔄</div>
-                            <h3>Každý s každým</h3>
-                            <p>Round-robin - všichni hrají proti všem</p>
+                            <h3>${i18n.t('system.roundrobin')}</h3>
+                            <p>${i18n.currentLang === 'cs' ? 'Round-robin - všichni hrají proti všem' : 'Everyone plays against everyone'}</p>
                         </div>
                         <div class="system-option ${State.current.system === 'swiss' ? 'active' : ''}" data-system="swiss">
                             <div style="font-size:2.5em;">🇨🇭</div>
-                            <h3>Švýcarský systém</h3>
-                            <p>Postupné párování podle výsledků</p>
+                            <h3>${i18n.t('system.swiss')}</h3>
+                            <p>${i18n.currentLang === 'cs' ? 'Postupné párování podle výsledků' : 'Progressive pairing by results'}</p>
                         </div>
                         <div class="system-option ${State.current.system === 'groups' ? 'active' : ''}" data-system="groups">
                             <div style="font-size:2.5em;">👥</div>
-                            <h3>Skupiny + Playoff</h3>
-                            <p>Skupinová fáze, pak vyřazovací pavouk</p>
+                            <h3>${i18n.t('system.groups')}</h3>
+                            <p>${i18n.currentLang === 'cs' ? 'Skupinová fáze, pak vyřazovací pavouk' : 'Group stage, then knockout bracket'}</p>
                         </div>
                         <div class="system-option ${State.current.system === 'knockout' ? 'active' : ''}" data-system="knockout">
                             <div style="font-size:2.5em;">🏆</div>
-                            <h3>Vyřazovací</h3>
-                            <p>Přímý pavouk od začátku</p>
+                            <h3>${i18n.t('system.knockout')}</h3>
+                            <p>${i18n.currentLang === 'cs' ? 'Přímý pavouk od začátku' : 'Direct bracket from start'}</p>
                         </div>
                     </div>
                 </div>
@@ -171,10 +171,10 @@ const UI = {
 
                 <div class="button-group">
                     <button class="btn btn-primary" onclick="goToParticipants()">
-                        Pokračovat k účastníkům →
+                        ${i18n.currentLang === 'cs' ? 'Pokračovat k účastníkům →' : 'Continue to Participants →'}
                     </button>
                     <button class="btn btn-danger" onclick="if(State.reset()) UI.render()">
-                        🗑️ Nový turnaj
+                        🗑️ ${i18n.currentLang === 'cs' ? 'Nový turnaj' : 'New Tournament'}
                     </button>
                 </div>
             </div>
@@ -184,14 +184,14 @@ const UI = {
     renderParticipants() {
         return `
             <div class="card">
-                <h2>👥 Účastníci turnaje</h2>
-                
+                <h2>👥 ${i18n.t('step.participants')} ${i18n.currentLang === 'cs' ? 'turnaje' : ''}</h2>
+
                 <div class="button-group">
                     <button class="btn btn-primary" onclick="openParticipantModal()">
-                        ➕ Přidat účastníka
+                        ➕ ${i18n.t('participant.add')}
                     </button>
                     <button class="btn btn-outline" onclick="autoFillParticipants()">
-                        🎲 Demo účastníci
+                        🎲 ${i18n.currentLang === 'cs' ? 'Demo účastníci' : 'Demo Participants'}
                     </button>
                 </div>
 
@@ -226,10 +226,10 @@ const UI = {
 
                 <div class="button-group">
                     <button class="btn btn-primary" onclick="goToDraw()" ${State.current.participants.length < 2 ? 'disabled' : ''}>
-                        Pokračovat na losování →
+                        ${i18n.currentLang === 'cs' ? 'Pokračovat na losování →' : 'Continue to Draw →'}
                     </button>
                     <button class="btn btn-outline" onclick="goToSetup()">
-                        ← Zpět
+                        ← ${i18n.t('btn.back')}
                     </button>
                 </div>
             </div>
@@ -239,7 +239,7 @@ const UI = {
     renderDraw() {
         return `
             <div class="card">
-                <h2>🎲 Losování</h2>
+                <h2>🎲 ${i18n.t('step.draw')}</h2>
                 
                 <div class="alert alert-info">
                     <strong>Systém:</strong> ${Utils.getSystemName()} • 
@@ -264,13 +264,13 @@ const UI = {
 
                 <div class="button-group">
                     <button class="btn btn-secondary" onclick="performDraw()">
-                        🎲 ${State.current.rounds.length > 0 ? 'Přelosovat' : 'Losovat'}
+                        🎲 ${State.current.rounds.length > 0 ? (i18n.currentLang === 'cs' ? 'Přelosovat' : 'Redraw') : (i18n.currentLang === 'cs' ? 'Losovat' : 'Draw')}
                     </button>
                     <button class="btn btn-primary" onclick="Matches.generate()">
-                        ⚽ Vygenerovat zápasy →
+                        ⚽ ${i18n.currentLang === 'cs' ? 'Vygenerovat zápasy →' : 'Generate Matches →'}
                     </button>
                     <button class="btn btn-outline" onclick="goToParticipants()">
-                        ← Zpět
+                        ← ${i18n.t('btn.back')}
                     </button>
                 </div>
             </div>
@@ -300,28 +300,28 @@ const UI = {
 
         return `
             <div class="card">
-                <h2>⚽ Zápasy</h2>
-                
+                <h2>⚽ ${i18n.t('step.matches')}</h2>
+
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-value">${completed}/${total}</div>
-                        <div class="stat-label">Dokončeno</div>
+                        <div class="stat-label">${i18n.currentLang === 'cs' ? 'Dokončeno' : 'Completed'}</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value">${playing}</div>
-                        <div class="stat-label">Právě hraje</div>
+                        <div class="stat-label">${i18n.t('match.playing')}</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value">${State.current.rounds.length}</div>
-                        <div class="stat-label">Kol</div>
+                        <div class="stat-label">${i18n.currentLang === 'cs' ? 'Kol' : 'Rounds'}</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value">${Math.round(progress)}%</div>
-                        <div class="stat-label">Postup</div>
+                        <div class="stat-label">${i18n.currentLang === 'cs' ? 'Postup' : 'Progress'}</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value">${estimatedEnd}</div>
-                        <div class="stat-label">Odhad konce</div>
+                        <div class="stat-label">${i18n.currentLang === 'cs' ? 'Odhad konce' : 'Estimated End'}</div>
                     </div>
                 </div>
 
@@ -392,9 +392,9 @@ const UI = {
                     </button>
                 ` : ''}
                     <button class="btn btn-primary" onclick="goToResults()">
-                        Zobrazit výsledky →
+                        ${i18n.currentLang === 'cs' ? 'Zobrazit výsledky →' : 'View Results →'}
                     </button>
-                    <button class="btn btn-outline" onclick="goToDraw()">← Zpět</button>
+                    <button class="btn btn-outline" onclick="goToDraw()">← ${i18n.t('btn.back')}</button>
                 </div>
             </div>
         `;
@@ -409,7 +409,7 @@ const UI = {
 
         return `
             <div class="card">
-                <h2>🏆 Výsledky</h2>
+                <h2>🏆 ${i18n.t('step.results')}</h2>
                 
                 ${allCompleted ? `
                     <div class="alert alert-success">
@@ -447,8 +447,8 @@ const UI = {
                 <table>
                     <thead>
                         <tr>
-                            <th>Pořadí</th><th>Jméno</th><th>Z</th><th>V</th><th>R</th><th>P</th>
-                            <th>Sety</th><th>Body v setech</th><th>Body</th>
+                            <th>${i18n.t('results.position')}</th><th>${i18n.t('results.player')}</th><th>${i18n.currentLang === 'cs' ? 'Z' : 'M'}</th><th>${i18n.currentLang === 'cs' ? 'V' : 'W'}</th><th>${i18n.currentLang === 'cs' ? 'R' : 'D'}</th><th>${i18n.currentLang === 'cs' ? 'P' : 'L'}</th>
+                            <th>${i18n.t('results.sets')}</th><th>${i18n.currentLang === 'cs' ? 'Body v setech' : 'Set Points'}</th><th>${i18n.t('results.points')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -471,10 +471,10 @@ const UI = {
                 <div class="button-group">
                     <button class="btn btn-secondary" onclick="Export.toJSON()">📥 JSON</button>
                     <button class="btn btn-secondary" onclick="Export.toCSV()">📊 CSV</button>
-                    <button class="btn btn-outline" onclick="goToMatches()">← Zpět</button>
+                    <button class="btn btn-outline" onclick="goToMatches()">← ${i18n.t('btn.back')}</button>
                     ${allCompleted ? `
-                        <button class="btn btn-primary" onclick="saveToHistory()">💾 Uložit do historie</button>
-                        <button class="btn btn-danger" onclick="if(State.reset()) UI.render()">🆕 Nový turnaj</button>
+                        <button class="btn btn-primary" onclick="saveToHistory()">💾 ${i18n.currentLang === 'cs' ? 'Uložit do historie' : 'Save to History'}</button>
+                        <button class="btn btn-danger" onclick="if(State.reset()) UI.render()">🆕 ${i18n.currentLang === 'cs' ? 'Nový turnaj' : 'New Tournament'}</button>
                     ` : ''}
                 </div>
             </div>
