@@ -62,7 +62,17 @@ const Playoff = {
     },
 
     generateFromGroups() {
-        if (!State.current.groups || State.current.groups.length === 0) return;
+        if (!State.current.groups || State.current.groups.length === 0) {
+            Utils.showNotification('Nejsou vytvořeny žádné skupiny!', 'error');
+            return false;
+        }
+
+        // Check if all group matches are completed
+        const allGroupMatches = State.current.matches.filter(m => !m.isPlayoff);
+        if (!allGroupMatches.every(m => m.completed)) {
+            Utils.showNotification('Nejprve dokončete všechny zápasy ve skupinách!', 'error');
+            return false;
+        }
 
         // Calculate standings for groups
         Stats.calculate();
@@ -78,33 +88,51 @@ const Playoff = {
                 groupPlayers.includes(s.player)
             );
             
+            console.log(`Skupina ${groupLetter}:`, groupStandings);
+            
             // Take top 2
             const top2 = groupStandings.slice(0, 2);
-            top2.forEach(player => {
+            top2.forEach((player, pos) => {
                 const participant = State.current.participants.find(p => p.name === player.player);
                 if (participant) {
                     qualifiers.push({
                         ...participant,
-                        groupPosition: qualifiers.filter(q => q.group === groupLetter).length + 1,
+                        groupPosition: pos + 1,
                         group: groupLetter,
-                        points: player.points
+                        points: player.points,
+                        wins: player.wins
                     });
                 }
             });
         });
 
+        if (qualifiers.length < 2) {
+            Utils.showNotification('Nedostatek kvalifikovaných hráčů pro playoff!', 'error');
+            return false;
+        }
+
+        console.log('Qualifiers:', qualifiers);
+
         // Sort qualifiers: 1st places first (by points), then 2nd places
         const firstPlaces = qualifiers.filter(q => q.groupPosition === 1).sort((a, b) => b.points - a.points);
         const secondPlaces = qualifiers.filter(q => q.groupPosition === 2).sort((a, b) => b.points - a.points);
         
-        const sorted = [...firstPlaces, ...secondPlaces];
-        
-        // Pair 1st places with 2nd places: 1st A vs 2nd B, 1st B vs 2nd A, etc.
+        // Pairing: 1st from group A vs 2nd from different group
         const paired = [];
-        const half = sorted.length / 2;
-        for (let i = 0; i < half; i++) {
-            paired.push(sorted[i]);
-            paired.push(sorted[sorted.length - 1 - i]);
+        
+        // Simple pairing: alternate first and second places
+        for (let i = 0; i < firstPlaces.length; i++) {
+            paired.push(firstPlaces[i]);
+            if (secondPlaces[i]) {
+                paired.push(secondPlaces[secondPlaces.length - 1 - i]); // Cross pairing
+            }
+        }
+
+        console.log('Paired:', paired);
+
+        if (paired.length < 2) {
+            Utils.showNotification('Nedostatek hráčů pro playoff!', 'error');
+            return false;
         }
 
         // Generate knockout bracket from qualified players
@@ -118,6 +146,7 @@ const Playoff = {
             qualifiers: qualifiers
         };
 
+        // Generate first playoff round
         for (let i = 0; i < paired.length; i += 2) {
             const p1 = paired[i];
             const p2 = paired[i + 1];
@@ -132,6 +161,11 @@ const Playoff = {
         }
         
         State.current.rounds.push(nextRound);
+        
+        State.save();
+        Utils.showNotification(`Playoff pavouk vygenerován! ${paired.length} hráčů postoupilo.`);
+        
+        return true;
     },
 
     // Advance winners to next round after all matches in current round are done
@@ -186,8 +220,7 @@ const Playoff = {
         
         State.current.playoffBracket.currentRound = nextRound;
         return true;
-    }
-};
+    },
 
     // Render visual bracket
     renderBracket() {

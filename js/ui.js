@@ -385,8 +385,8 @@ const UI = {
                         🏆 Generovat další fázi playoff
                     </button>
                 ` : ''}
-                ${State.current.system === 'groups' && !State.current.playoffBracket && Utils.allMatchesCompleted() ? `
-                    <button class="btn btn-warning" onclick="Playoff.generateFromGroups(); UI.render();">
+                ${State.current.system === 'groups' && !State.current.playoffBracket && State.current.matches.filter(m => !m.isPlayoff).every(m => m.completed) && State.current.matches.filter(m => !m.isPlayoff).length > 0 ? `
+                    <button class="btn btn-warning" onclick="if(Playoff.generateFromGroups()) UI.render();">
                         🏆 Vygenerovat playoff pavouk
                     </button>
                 ` : ''}
