@@ -603,3 +603,148 @@ tr:hover { background: var(--bg); }
 }
 
 .hidden { display: none; }
+
+/* Playoff Bracket Visualization */
+.bracket-container {
+    overflow-x: auto;
+    padding: 30px 20px;
+    background: var(--bg);
+    border-radius: 12px;
+    margin: 20px 0;
+}
+
+.bracket {
+    display: flex;
+    gap: 40px;
+    min-width: fit-content;
+}
+
+.bracket-round {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    min-width: 220px;
+}
+
+.bracket-round-title {
+    text-align: center;
+    font-weight: bold;
+    color: var(--primary);
+    margin-bottom: 20px;
+    font-size: 1.1em;
+}
+
+.bracket-match {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    margin: 20px 0;
+    position: relative;
+    transition: all 0.3s;
+}
+
+.bracket-match:hover {
+    border-color: var(--primary);
+    transform: translateX(-3px);
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+.bracket-match.completed {
+    border-color: var(--secondary);
+}
+
+.bracket-match.playing {
+    border-color: var(--warning);
+    animation: pulse 2s infinite;
+}
+
+.bracket-player {
+    padding: 12px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    transition: all 0.3s;
+}
+
+.bracket-player:last-child {
+    border-bottom: none;
+}
+
+.bracket-player.winner {
+    background: var(--secondary);
+    color: white;
+    font-weight: bold;
+}
+
+.bracket-player.loser {
+    opacity: 0.5;
+}
+
+.bracket-player-name {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bracket-player-seed {
+    background: var(--primary);
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75em;
+    font-weight: bold;
+}
+
+.bracket-score {
+    font-weight: bold;
+    font-size: 1.1em;
+    min-width: 30px;
+    text-align: right;
+}
+
+.bracket-connector {
+    position: absolute;
+    right: -40px;
+    top: 50%;
+    width: 40px;
+    height: 2px;
+    background: var(--border);
+}
+
+.bracket-match-status {
+    position: absolute;
+    top: -10px;
+    right: 10px;
+    background: var(--warning);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75em;
+    font-weight: bold;
+}
+
+.bracket-tbd {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+@media (max-width: 768px) {
+    .bracket {
+        gap: 30px;
+    }
+    
+    .bracket-round {
+        min-width: 180px;
+    }
+    
+    .bracket-connector {
+        width: 30px;
+        right: -30px;
+    }
+}
