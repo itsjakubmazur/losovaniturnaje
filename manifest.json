@@ -1,7 +1,7 @@
 {
-  "name": "Badminton Tournament Manager PRO",
-  "short_name": "Tournament PRO",
-  "description": "Profesionální správa badmintonových turnajů",
+  "name": "Losovací web",
+  "short_name": "Losovací web",
+  "description": "Správa turnajů",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#3b82f6",
