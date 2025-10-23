@@ -18,6 +18,10 @@
                 <p id="tournament-subtitle">Správa turnajů</p>
             </div>
             <div class="header-right">
+                <button class="icon-btn" onclick="i18n.showLanguageSelector()" title="Jazyk / Language">🌍</button>
+                <button class="icon-btn" onclick="State.showBackupMenu()" title="Záloha dat">☁️</button>
+                <button class="icon-btn" onclick="Utils.showQRCode()" title="QR kód - Sdílet">📱</button>
+                <button class="icon-btn" onclick="Stats.showHistoricalStats()" title="Statistiky napříč turnaji">📊</button>
                 <button class="icon-btn" onclick="openThemeMenu()" title="Motiv">🎨</button>
                 <button class="icon-btn" onclick="toggleDarkMode()" title="Tmavý režim">🌙</button>
                 <button class="icon-btn" onclick="openHistory()" title="Historie">📚</button>
@@ -37,6 +41,7 @@
     <div id="export-modal" class="modal"></div>
 
     <!-- Scripts -->
+    <script src="./js/i18n.js"></script>
     <script src="./js/state.js"></script>
     <script src="./js/utils.js"></script>
     <script src="./js/ui.js"></script>
