@@ -29,22 +29,51 @@ const State = {
     },
 
     editingParticipantIndex: -1,
+    isShared: false, // Tournament loaded from shared URL
+    readOnly: false, // Read-only mode for shared tournaments
 
     load() {
-        const saved = localStorage.getItem('tournamentData');
-        if (saved) {
-            try {
-                this.current = { ...this.current, ...JSON.parse(saved) };
-            } catch(e) {
-                console.error('Error loading data:', e);
+        // First check if there's shared tournament data in URL hash
+        const sharedData = Utils.decodeTournamentFromURL();
+        if (sharedData) {
+            this.current = { ...this.current, ...sharedData };
+            this.isShared = true;
+            this.readOnly = true;
+
+            // Show notification
+            setTimeout(() => {
+                Utils.showNotification(`📱 Zobrazuji sdílený turnaj: ${this.current.tournamentName}`);
+
+                // Show option to save locally
+                setTimeout(() => {
+                    if (confirm('Chcete uložit tento turnaj do místního úložiště?')) {
+                        this.isShared = false;
+                        this.readOnly = false;
+                        this.save();
+                        // Remove hash from URL
+                        window.history.replaceState(null, '', window.location.pathname);
+                        Utils.showNotification('Turnaj uložen lokálně');
+                        UI.render();
+                    }
+                }, 1000);
+            }, 500);
+        } else {
+            // Load from localStorage as usual
+            const saved = localStorage.getItem('tournamentData');
+            if (saved) {
+                try {
+                    this.current = { ...this.current, ...JSON.parse(saved) };
+                } catch(e) {
+                    console.error('Error loading data:', e);
+                }
             }
         }
-        
+
         // Load dark mode
         if (localStorage.getItem('darkMode') === 'true') {
             document.body.classList.add('dark-mode');
         }
-        
+
         // Load theme
         const theme = localStorage.getItem('theme');
         if (theme) {
@@ -52,10 +81,12 @@ const State = {
             document.body.classList.add(theme);
         }
 
-        // Load history
-        const hist = localStorage.getItem('tournamentHistory');
-        if (hist) {
-            this.current.history = JSON.parse(hist);
+        // Load history (only if not shared)
+        if (!this.isShared) {
+            const hist = localStorage.getItem('tournamentHistory');
+            if (hist) {
+                this.current.history = JSON.parse(hist);
+            }
         }
     },
 
