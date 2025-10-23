@@ -42,44 +42,44 @@ function openParticipantModal(index = -1) {
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h3>${index >= 0 ? 'Upravit účastníka' : 'Přidat účastníka'}</h3>
+                <h3>${index >= 0 ? i18n.t('participant.edit') : i18n.t('participant.add')}</h3>
                 <button class="modal-close" onclick="UI.closeModal('participant-modal')">×</button>
             </div>
             <div class="input-group">
-                <label>Jméno *</label>
-                <input type="text" id="modal-name" value="${participant?.name || ''}" placeholder="Celé jméno">
+                <label>${i18n.t('participant.name')} *</label>
+                <input type="text" id="modal-name" value="${participant?.name || ''}" placeholder="${i18n.currentLang === 'cs' ? 'Celé jméno' : 'Full Name'}">
             </div>
             <div class="input-group">
-                <label>Typ</label>
+                <label>${i18n.t('participant.type')}</label>
                 <select id="modal-type" onchange="UI.togglePartnerField()">
-                    <option value="single" ${!participant?.partner ? 'selected' : ''}>Jednotlivec</option>
-                    <option value="double" ${participant?.partner ? 'selected' : ''}>Debl (dvojice)</option>
+                    <option value="single" ${!participant?.partner ? 'selected' : ''}>${i18n.t('participant.single')}</option>
+                    <option value="double" ${participant?.partner ? 'selected' : ''}>${i18n.t('participant.double')}</option>
                 </select>
             </div>
             <div class="input-group" id="partner-group" style="display:${participant?.partner ? 'block' : 'none'};">
-                <label>Partner</label>
-                <input type="text" id="modal-partner" value="${participant?.partner || ''}" placeholder="Jméno partnera">
+                <label>${i18n.t('participant.partner')}</label>
+                <input type="text" id="modal-partner" value="${participant?.partner || ''}" placeholder="${i18n.currentLang === 'cs' ? 'Jméno partnera' : 'Partner Name'}">
             </div>
             <div class="input-group">
-                <label>Klub/Město</label>
-                <input type="text" id="modal-club" value="${participant?.club || ''}" placeholder="SK Badminton Praha">
+                <label>${i18n.t('participant.club')}</label>
+                <input type="text" id="modal-club" value="${participant?.club || ''}" placeholder="${i18n.currentLang === 'cs' ? 'SK Badminton Praha' : 'SK Badminton Prague'}">
             </div>
             <div class="input-group">
-                <label>Nasazení (1-10)</label>
+                <label>${i18n.t('participant.seed')}</label>
                 <input type="number" id="modal-seed" min="1" max="10" value="${participant?.seed || 5}">
-                <small>10 = nejsilnější</small>
+                <small>${i18n.currentLang === 'cs' ? '10 = nejsilnější' : '10 = strongest'}</small>
             </div>
             <div class="input-group">
-                <label>E-mail</label>
-                <input type="email" id="modal-email" value="${participant?.email || ''}" placeholder="hrac@example.com">
+                <label>${i18n.t('participant.email')}</label>
+                <input type="email" id="modal-email" value="${participant?.email || ''}" placeholder="${i18n.currentLang === 'cs' ? 'hrac@example.com' : 'player@example.com'}">
             </div>
             <div class="input-group">
-                <label>Telefon</label>
+                <label>${i18n.t('participant.phone')}</label>
                 <input type="tel" id="modal-phone" value="${participant?.phone || ''}" placeholder="+420 123 456 789">
             </div>
             <div class="button-group">
-                <button class="btn btn-primary" onclick="saveParticipant()">💾 Uložit</button>
-                <button class="btn btn-outline" onclick="UI.closeModal('participant-modal')">Zrušit</button>
+                <button class="btn btn-primary" onclick="saveParticipant()">💾 ${i18n.t('btn.save')}</button>
+                <button class="btn btn-outline" onclick="UI.closeModal('participant-modal')">${i18n.t('btn.cancel')}</button>
             </div>
         </div>
     `;
