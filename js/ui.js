@@ -45,12 +45,12 @@ const UI = {
     },
 
     updateTitle() {
-        document.getElementById('tournament-title').textContent = 
-            State.current.tournamentName || 'Tournament Manager PRO';
-        document.getElementById('tournament-subtitle').textContent = 
-            State.current.tournamentName ? 
-                `${State.current.participants.length} účastníků • ${State.current.numCourts} ${State.current.numCourts === 1 ? 'kurt' : 'kurty'} • ${Utils.formatDate(State.current.tournamentDate)}` : 
-                'Profesionální správa turnajů';
+        document.getElementById('tournament-title').textContent =
+            State.current.tournamentName || 'Losovací web';
+        document.getElementById('tournament-subtitle').textContent =
+            State.current.tournamentName ?
+                `${State.current.participants.length} účastníků • ${State.current.numCourts} ${State.current.numCourts === 1 ? 'kurt' : 'kurty'} • ${Utils.formatDate(State.current.tournamentDate)}` :
+                'Správa turnajů';
     },
 
     renderSetup() {
