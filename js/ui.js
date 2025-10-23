@@ -352,10 +352,13 @@ const UI = {
                         const roundCompleted = roundMatches.every(m => m.completed);
                         const roundPlaying = roundMatches.filter(m => m.playing).length;
                         
+                        // Get round name for playoff
+                        const roundName = roundMatches[0]?.roundName || `Kolo ${roundIndex + 1}`;
+                        
                         return `
                             <div class="round-section">
                                 <div class="round-header">
-                                    <h3>Kolo ${roundIndex + 1}</h3>
+                                    <h3>${roundName}</h3>
                                     <span style="background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 12px; font-size: 0.875em;">
                                         ${roundCompleted ? '✅ Dokončeno' : `${roundMatches.filter(m => m.completed).length}/${roundMatches.length}`}
                                     </span>
@@ -369,11 +372,22 @@ const UI = {
                 </div>
 
                 <div class="button-group">
-                    ${State.current.system === 'swiss' && !Utils.allMatchesCompleted() ? `
-                        <button class="btn btn-secondary" onclick="Swiss.generateNextRound()">
-                            🇨🇭 Generovat další kolo
-                        </button>
-                    ` : ''}
+                ${State.current.system === 'swiss' ? `
+                    <button class="btn btn-secondary" onclick="Swiss.generateNextRound()" 
+                            ${State.current.matches.filter(m => m.round === State.current.swissRound - 1).every(m => m.completed) ? '' : 'disabled'}>
+                        🇨🇭 Generovat další kolo ${State.current.swissRound + 1}
+                    </button>
+                ` : ''}
+                ${(State.current.system === 'groups' || State.current.system === 'knockout') && State.current.playoffBracket ? `
+                    <button class="btn btn-secondary" onclick="advancePlayoffRound()" id="advance-playoff-btn">
+                        🏆 Generovat další fázi playoff
+                    </button>
+                ` : ''}
+                ${State.current.system === 'groups' && !State.current.playoffBracket && Utils.allMatchesCompleted() ? `
+                    <button class="btn btn-warning" onclick="Playoff.generateFromGroups(); UI.render();">
+                        🏆 Vygenerovat playoff pavouk
+                    </button>
+                ` : ''}
                     <button class="btn btn-primary" onclick="goToResults()">
                         Zobrazit výsledky →
                     </button>
@@ -538,12 +552,16 @@ const UI = {
             content.innerHTML = `
                 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:15px;">
                     ${State.current.history.map(t => `
-                        <div style="background:var(--bg);padding:20px;border-radius:12px;border:2px solid var(--border);cursor:pointer;" onclick="Utils.showNotification('Načítání historie zatím není implementováno')">
+                        <div style="background:var(--bg);padding:20px;border-radius:12px;border:2px solid var(--border);cursor:pointer;transition:all 0.3s;" 
+                             onclick="loadTournamentFromHistory(${t.id})"
+                             onmouseover="this.style.borderColor='var(--primary)'"
+                             onmouseout="this.style.borderColor='var(--border)'">
                             <div style="font-weight:600;margin-bottom:10px;color:var(--primary);">${t.name}</div>
                             <div style="font-size:0.875em;color:var(--text-muted);">
                                 ${Utils.formatDate(t.date)}<br>
+                                ${Utils.getSystemName(t.system)}<br>
                                 ${t.participants} účastníků • ${t.matches} zápasů<br>
-                                Vítěz: <strong>${t.winner}</strong>
+                                🏆 Vítěz: <strong>${t.winner}</strong>
                             </div>
                         </div>
                     `).join('')}

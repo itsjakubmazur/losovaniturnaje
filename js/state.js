@@ -107,17 +107,33 @@ const State = {
             matches: this.current.matches.length,
             winner: this.current.standings[0]?.player,
             standings: this.current.standings,
-            completedAt: new Date().toISOString()
+            completedAt: new Date().toISOString(),
+            fullData: { ...this.current } // Store complete state
         };
         
         this.current.history.unshift(tournament);
+        // Keep only last 50 tournaments
+        if (this.current.history.length > 50) {
+            this.current.history = this.current.history.slice(0, 50);
+        }
         localStorage.setItem('tournamentHistory', JSON.stringify(this.current.history));
         
         return tournament;
     },
 
     loadFromHistory(id) {
-        // V budoucí verzi - načtení celého turnaje z historie
-        console.log('Loading tournament:', id);
+        const tournament = this.current.history.find(t => t.id === id);
+        if (!tournament || !tournament.fullData) {
+            Utils.showNotification('Turnaj nelze načíst - chybí data', 'error');
+            return;
+        }
+        
+        // Restore full tournament data
+        this.current = { ...this.current, ...tournament.fullData };
+        this.current.step = 'results'; // Go directly to results
+        this.save();
+        
+        Utils.showNotification(`Turnaj "${tournament.name}" načten`);
+        return true;
     }
 };

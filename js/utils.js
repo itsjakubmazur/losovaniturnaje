@@ -37,12 +37,18 @@ const Utils = {
         if (s1 < 0 || s2 < 0) return false;
         if (s1 > State.current.tieBreakPoints || s2 > State.current.tieBreakPoints) return false;
         
-        // Minimálně jeden musí dosáhnout pointsPerSet
+        // At least one player must reach pointsPerSet
         if (s1 < State.current.pointsPerSet && s2 < State.current.pointsPerSet) return false;
         
-        // Rozdíl minimálně 2 body
-        if (Math.max(s1, s2) < State.current.tieBreakPoints) {
+        // If under tie-break, require 2 point difference
+        const maxScore = Math.max(s1, s2);
+        if (maxScore < State.current.tieBreakPoints) {
             if (Math.abs(s1 - s2) < 2) return false;
+        } else {
+            // At tie-break point, only 1 point difference needed
+            if (maxScore === State.current.tieBreakPoints) {
+                if (Math.abs(s1 - s2) !== 1) return false;
+            }
         }
         
         return true;

@@ -256,6 +256,44 @@ function saveToHistory() {
     Utils.throwConfetti();
 }
 
+function loadTournamentFromHistory(id) {
+    if (State.loadFromHistory(id)) {
+        UI.closeModal('history-modal');
+        UI.render();
+    }
+}
+
+function advancePlayoffRound() {
+    if (!State.current.playoffBracket) {
+        Utils.showNotification('Playoff není aktivní', 'error');
+        return;
+    }
+    
+    const currentRound = State.current.playoffBracket.currentRound;
+    
+    // Check if current round is completed
+    const currentRoundMatches = State.current.matches.filter(m => 
+        m.knockoutRound === currentRound
+    );
+    
+    if (!currentRoundMatches.every(m => m.completed)) {
+        Utils.showNotification('Dokončete všechny zápasy aktuální fáze!', 'error');
+        return;
+    }
+    
+    const success = Playoff.advanceWinners(currentRound);
+    if (success) {
+        State.save();
+        UI.render();
+        
+        if (State.current.playoffBracket.currentRound === State.current.playoffBracket.totalRounds - 1) {
+            Utils.showNotification('Finále vygenerováno! 🏆');
+        } else {
+            Utils.showNotification('Další fáze vygenerována');
+        }
+    }
+}
+
 // Start app when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

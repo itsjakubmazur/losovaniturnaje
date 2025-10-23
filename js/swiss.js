@@ -23,13 +23,6 @@ const Swiss = {
     },
 
     generateNextRound() {
-        // Check if all matches in current round are completed
-        const currentRoundMatches = State.current.matches.filter(m => m.round === State.current.swissRound - 1);
-        if (!currentRoundMatches.every(m => m.completed)) {
-            Utils.showNotification('Nejprve dokončete všechny zápasy aktuálního kola!', 'error');
-            return;
-        }
-
         // Calculate current standings
         Stats.calculate();
         
@@ -69,7 +62,7 @@ const Swiss = {
             UI.render();
             Utils.showNotification(`Kolo ${State.current.swissRound} vygenerováno`);
         } else {
-            Utils.showNotification('Nelze vygenerovat další kolo - všichni již spolu hráli', 'error');
+            Utils.showNotification('Nelze vygenerovat další kolo', 'error');
         }
     },
 
