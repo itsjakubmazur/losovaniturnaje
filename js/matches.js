@@ -154,9 +154,8 @@ const Matches = {
                     </div>
                 </div>
 
-                ${State.current.bestOf > 1 ? `
-                    <div class="sets-container">
-                        ${match.sets.map((set, setIdx) => `
+                <div class="sets-container">
+                    ${match.sets.map((set, setIdx) => `
                             <div class="set-row">
                                 <span style="color:var(--text-muted);font-size:0.875em;font-weight:500;">Set ${setIdx + 1}:</span>
                                 <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
@@ -172,9 +171,8 @@ const Matches = {
                                        ${isCompleted ? 'disabled' : ''}>
                                 ${Utils.validateSet(set.score1, set.score2) ? '' : '<span style="color:var(--danger);font-size:0.875em;">⚠️</span>'}
                             </div>
-                        `).join('')}
-                    </div>
-                ` : ''}
+                    `).join('')}
+                </div>
 
                 ${isPlaying && match.startTime ? `
                     <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:8px;margin-top:10px;">
@@ -223,9 +221,11 @@ const Matches = {
         let p1SetsWon = 0;
         let p2SetsWon = 0;
         let allSetsValid = true;
+        let filledSets = 0;
         
         match.sets.forEach(set => {
             if (set.score1 !== null && set.score2 !== null) {
+                filledSets++;
                 if (!Utils.validateSet(set.score1, set.score2)) {
                     allSetsValid = false;
                 }
@@ -239,10 +239,19 @@ const Matches = {
             return;
         }
 
-        const requiredSets = Math.ceil(State.current.bestOf / 2);
-        if (p1SetsWon < requiredSets && p2SetsWon < requiredSets) {
-            Utils.showNotification('Není rozhodnuto! Chybí vítězné sety.', 'error');
-            return;
+        // Pro Best of 1 stačí jeden vyplněný set
+        if (State.current.bestOf === 1) {
+            if (filledSets < 1) {
+                Utils.showNotification('Vyplňte skóre setu!', 'error');
+                return;
+            }
+        } else {
+            // Pro Best of 3/5 musí být rozhodnuto
+            const requiredSets = Math.ceil(State.current.bestOf / 2);
+            if (p1SetsWon < requiredSets && p2SetsWon < requiredSets) {
+                Utils.showNotification('Není rozhodnuto! Chybí vítězné sety.', 'error');
+                return;
+            }
         }
 
         match.playing = false;
