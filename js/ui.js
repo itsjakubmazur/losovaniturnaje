@@ -380,8 +380,9 @@ const UI = {
                         🇨🇭 Generovat další kolo ${State.current.swissRound + 1}
                     </button>
                 ` : ''}
-                ${(State.current.system === 'groups' || State.current.system === 'knockout') && State.current.playoffBracket ? `
-                    <button class="btn btn-secondary" onclick="advancePlayoffRound()" id="advance-playoff-btn">
+                ${State.current.playoffBracket && State.current.playoffBracket.currentRound < State.current.playoffBracket.totalRounds - 1 ? `
+                    <button class="btn btn-secondary" onclick="advancePlayoffRound()" id="advance-playoff-btn"
+                            ${State.current.matches.filter(m => m.knockoutRound === State.current.playoffBracket.currentRound).every(m => m.completed) ? '' : 'disabled'}>
                         🏆 Generovat další fázi playoff
                     </button>
                 ` : ''}

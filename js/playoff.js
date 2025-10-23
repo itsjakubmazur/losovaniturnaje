@@ -2,8 +2,13 @@
 
 const Playoff = {
     generateBracket(participants) {
+        console.log('Generating knockout bracket for participants:', participants);
+        
         const sorted = [...participants].sort((a, b) => (b.seed || 5) - (a.seed || 5));
         const n = Utils.getNextPowerOfTwo(sorted.length);
+        
+        console.log('Sorted participants:', sorted);
+        console.log('Next power of 2:', n);
         
         // Add byes if needed
         while (sorted.length < n) {
@@ -12,44 +17,39 @@ const Playoff = {
 
         // Calculate number of rounds needed
         const totalRounds = Math.log2(n);
+        console.log('Total rounds needed:', totalRounds);
         
         State.current.rounds = [];
         State.current.matches = [];
         
-        // Generate all rounds
-        let currentParticipants = [...sorted];
+        // Generate ONLY the first round
+        const firstRoundMatches = [];
         
-        for (let round = 0; round < totalRounds; round++) {
-            State.current.rounds.push(round);
-            const roundMatches = [];
+        for (let i = 0; i < sorted.length; i += 2) {
+            const p1 = sorted[i];
+            const p2 = sorted[i + 1];
             
-            for (let i = 0; i < currentParticipants.length; i += 2) {
-                const p1 = currentParticipants[i];
-                const p2 = currentParticipants[i + 1];
-                
-                if (!p1.isBye && !p2.isBye) {
-                    const match = Matches.createMatch(p1, p2, round, (roundMatches.length % State.current.numCourts) + 1);
-                    match.knockoutRound = round;
-                    match.roundName = this.getRoundName(round, totalRounds);
-                    roundMatches.push(match);
-                    State.current.matches.push(match);
-                } else if (!p1.isBye) {
-                    // P1 gets bye, advances automatically
-                    currentParticipants[i / 2] = p1;
-                } else if (!p2.isBye) {
-                    // P2 gets bye, advances automatically  
-                    currentParticipants[i / 2] = p2;
-                }
+            if (!p1.isBye && !p2.isBye) {
+                const match = Matches.createMatch(p1, p2, 0, (firstRoundMatches.length % State.current.numCourts) + 1);
+                match.knockoutRound = 0;
+                match.roundName = this.getRoundName(0, totalRounds);
+                match.isPlayoff = false; // It's main knockout, not playoff after groups
+                firstRoundMatches.push(match);
             }
-            
-            // Prepare for next round - half the participants
-            currentParticipants = new Array(currentParticipants.length / 2);
         }
+        
+        console.log('First round matches:', firstRoundMatches);
+        
+        State.current.rounds.push(0);
+        State.current.matches = firstRoundMatches;
         
         State.current.playoffBracket = {
             totalRounds: totalRounds,
-            currentRound: 0
+            currentRound: 0,
+            isKnockout: true // Flag to indicate this is main knockout tournament
         };
+        
+        console.log('Playoff bracket initialized:', State.current.playoffBracket);
     },
 
     getRoundName(round, totalRounds) {
@@ -143,7 +143,8 @@ const Playoff = {
             round: 'Playoff',
             totalRounds: totalRounds,
             currentRound: 0,
-            qualifiers: qualifiers
+            qualifiers: qualifiers,
+            isKnockout: false // This is playoff after groups
         };
 
         // Generate first playoff round
@@ -170,18 +171,30 @@ const Playoff = {
 
     // Advance winners to next round after all matches in current round are done
     advanceWinners(round) {
+        console.log('Advancing winners from round:', round);
+        
         const roundMatches = State.current.matches.filter(m => 
             m.knockoutRound === round && m.completed
         );
         
-        if (roundMatches.length === 0) return false;
+        console.log('Completed matches in this round:', roundMatches);
+        
+        if (roundMatches.length === 0) {
+            console.log('No completed matches found');
+            return false;
+        }
         
         // Check if all matches in this round are completed
-        const allCompleted = State.current.matches
-            .filter(m => m.knockoutRound === round)
-            .every(m => m.completed);
+        const allRoundMatches = State.current.matches.filter(m => m.knockoutRound === round);
+        const allCompleted = allRoundMatches.every(m => m.completed);
         
-        if (!allCompleted) return false;
+        console.log('All matches in round:', allRoundMatches);
+        console.log('All completed?', allCompleted);
+        
+        if (!allCompleted) {
+            console.log('Not all matches completed yet');
+            return false;
+        }
         
         // Get winners
         const winners = [];
@@ -196,11 +209,19 @@ const Playoff = {
             }
         });
         
-        if (winners.length < 2) return true; // Tournament finished!
+        console.log('Winners:', winners);
+        
+        if (winners.length < 2) {
+            console.log('Tournament finished! Winner:', winners[0]);
+            return true; // Tournament finished!
+        }
         
         // Create next round matches
         const nextRound = round + 1;
         const nextRoundIndex = State.current.rounds.length;
+        
+        console.log('Creating next round:', nextRound, 'at index:', nextRoundIndex);
+        
         State.current.rounds.push(nextRoundIndex);
         
         for (let i = 0; i < winners.length; i += 2) {
@@ -213,25 +234,35 @@ const Playoff = {
                 );
                 match.knockoutRound = nextRound;
                 match.roundName = this.getRoundName(nextRound, State.current.playoffBracket.totalRounds);
-                match.isPlayoff = true;
+                match.isPlayoff = State.current.playoffBracket.isKnockout === false; // Keep isPlayoff flag consistent
                 State.current.matches.push(match);
+                console.log('Created match:', match);
             }
         }
         
         State.current.playoffBracket.currentRound = nextRound;
+        console.log('Updated playoffBracket:', State.current.playoffBracket);
+        
         return true;
     },
 
     // Render visual bracket
     renderBracket() {
-        if (!State.current.playoffBracket) return '';
+        if (!State.current.playoffBracket) {
+            console.log('No playoff bracket to render');
+            return '';
+        }
         
         const totalRounds = State.current.playoffBracket.totalRounds;
         const rounds = [];
         
         // Organize matches by knockout round
-        for (let r = 0; r < totalRounds; r++) {
-            const roundMatches = State.current.matches.filter(m => m.knockoutRound === r);
+        for (let r = 0; r <= State.current.playoffBracket.currentRound; r++) {
+            const roundMatches = State.current.matches.filter(m => 
+                m.knockoutRound === r && 
+                (m.isPlayoff === true || State.current.playoffBracket.isKnockout === true)
+            );
+            
             if (roundMatches.length > 0) {
                 rounds.push({
                     round: r,
@@ -241,7 +272,12 @@ const Playoff = {
             }
         }
         
-        if (rounds.length === 0) return '';
+        console.log('Rendering bracket with rounds:', rounds);
+        
+        if (rounds.length === 0) {
+            console.log('No rounds to display');
+            return '';
+        }
         
         return `
             <div class="card">
