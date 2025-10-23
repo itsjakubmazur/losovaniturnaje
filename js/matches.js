@@ -119,17 +119,91 @@ const Matches = {
         const isPlaying = match.playing;
         
         let winner = null;
+        let scoreDisplay = '';
+        
         if (isCompleted && match.sets) {
             const p1Sets = match.sets.filter(s => s.score1 > s.score2).length;
             const p2Sets = match.sets.filter(s => s.score2 > s.score1).length;
             winner = p1Sets > p2Sets ? 1 : p2Sets > p1Sets ? 2 : 0;
+            scoreDisplay = `${p1Sets}:${p2Sets}`;
         }
 
         const p1Name = match.player1.name || match.player1;
         const p2Name = match.player2.name || match.player2;
 
+        // Kompaktní verze pro dokončené zápasy
+        if (isCompleted) {
+            return `
+                <div class="match-card completed collapsed" id="match-${idx}">
+                    <div class="match-summary" onclick="toggleMatchDetail(${idx})">
+                        <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
+                            <span style="font-weight:bold;color:var(--text-muted);min-width:70px;">Zápas ${idx + 1}</span>
+                            <div class="match-result" style="flex: 1;">
+                                <span ${winner === 1 ? 'style="color:var(--secondary);"' : ''}>${p1Name}</span>
+                                <span class="match-score">${scoreDisplay}</span>
+                                <span ${winner === 2 ? 'style="color:var(--secondary);"' : ''}>${p2Name}</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size:0.875em;color:var(--text-muted);">
+                                ${match.sets.map(s => `${s.score1}:${s.score2}`).filter(s => !s.includes('null')).join(', ')}
+                            </span>
+                            <span class="expand-icon">▼</span>
+                        </div>
+                    </div>
+                    
+                    <div class="match-details" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
+                        <div class="match-header">
+                            <span class="court-badge">Kurt ${match.court}</span>
+                            ${match.startTime ? `<span style="color:var(--text-muted);font-size:0.875em;">⏰ ${new Date(match.startTime).toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'})} - ${new Date(match.endTime).toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'})}</span>` : ''}
+                        </div>
+                        
+                        <div class="match-players" style="margin-top: 15px;">
+                            <div class="player-side ${winner === 1 ? 'winner' : ''}">
+                                <div style="width:35px;height:35px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.875em;font-weight:bold;">
+                                    ${Utils.getInitials(p1Name)}
+                                </div>
+                                <span>${p1Name}</span>
+                            </div>
+                            <div style="color:var(--text-muted);font-weight:bold;font-size:1.2em;">VS</div>
+                            <div class="player-side ${winner === 2 ? 'winner' : ''}">
+                                <div style="width:35px;height:35px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.875em;font-weight:bold;">
+                                    ${Utils.getInitials(p2Name)}
+                                </div>
+                                <span>${p2Name}</span>
+                            </div>
+                        </div>
+
+                        <div class="sets-container">
+                            ${match.sets.map((set, setIdx) => {
+                                if (set.score1 === null && set.score2 === null) return '';
+                                return `
+                                    <div style="display:flex;justify-content:space-between;padding:8px;background:var(--bg);border-radius:6px;margin:5px 0;">
+                                        <span style="color:var(--text-muted);font-weight:500;">Set ${setIdx + 1}:</span>
+                                        <span style="font-weight:bold;">${set.score1} : ${set.score2}</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+
+                        ${State.current.notes[idx] ? `
+                            <div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:6px;">
+                                <strong style="font-size:0.875em;color:var(--text-muted);">Poznámky:</strong>
+                                <p style="margin-top:5px;">${State.current.notes[idx]}</p>
+                            </div>
+                        ` : ''}
+
+                        <div class="button-group" style="margin-top: 15px;">
+                            <button class="btn btn-outline" onclick="editMatch(${idx})">✏️ Upravit</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Plná verze pro probíhající/nedokončené zápasy
         return `
-            <div class="match-card ${isCompleted ? 'completed' : ''} ${isPlaying ? 'playing' : ''}">
+            <div class="match-card ${isPlaying ? 'playing' : ''}">
                 ${isPlaying ? '<div class="match-badge">▶️ HRAJE SE</div>' : ''}
                 
                 <div class="match-header">
@@ -139,14 +213,14 @@ const Matches = {
                 </div>
                 
                 <div class="match-players">
-                    <div class="player-side ${winner === 1 ? 'winner' : ''}">
+                    <div class="player-side">
                         <div style="width:35px;height:35px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.875em;font-weight:bold;">
                             ${Utils.getInitials(p1Name)}
                         </div>
                         <span>${p1Name}</span>
                     </div>
                     <div style="color:var(--text-muted);font-weight:bold;font-size:1.2em;">VS</div>
-                    <div class="player-side ${winner === 2 ? 'winner' : ''}">
+                    <div class="player-side">
                         <div style="width:35px;height:35px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.875em;font-weight:bold;">
                             ${Utils.getInitials(p2Name)}
                         </div>
@@ -156,21 +230,19 @@ const Matches = {
 
                 <div class="sets-container">
                     ${match.sets.map((set, setIdx) => `
-                            <div class="set-row">
-                                <span style="color:var(--text-muted);font-size:0.875em;font-weight:500;">Set ${setIdx + 1}:</span>
-                                <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
-                                       value="${set.score1 !== null ? set.score1 : ''}"
-                                       placeholder="0"
-                                       onchange="updateSet(${idx}, ${setIdx}, 1, this.value)"
-                                       ${isCompleted ? 'disabled' : ''}>
-                                <span style="text-align:center;">:</span>
-                                <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
-                                       value="${set.score2 !== null ? set.score2 : ''}"
-                                       placeholder="0"
-                                       onchange="updateSet(${idx}, ${setIdx}, 2, this.value)"
-                                       ${isCompleted ? 'disabled' : ''}>
-                                ${Utils.validateSet(set.score1, set.score2) ? '' : '<span style="color:var(--danger);font-size:0.875em;">⚠️</span>'}
-                            </div>
+                        <div class="set-row">
+                            <span style="color:var(--text-muted);font-size:0.875em;font-weight:500;">Set ${setIdx + 1}:</span>
+                            <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
+                                   value="${set.score1 !== null ? set.score1 : ''}"
+                                   placeholder="0"
+                                   onchange="updateSet(${idx}, ${setIdx}, 1, this.value)">
+                            <span style="text-align:center;">:</span>
+                            <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
+                                   value="${set.score2 !== null ? set.score2 : ''}"
+                                   placeholder="0"
+                                   onchange="updateSet(${idx}, ${setIdx}, 2, this.value)">
+                            ${Utils.validateSet(set.score1, set.score2) ? '' : '<span style="color:var(--danger);font-size:0.875em;">⚠️</span>'}
+                        </div>
                     `).join('')}
                 </div>
 
@@ -183,19 +255,15 @@ const Matches = {
                 <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
                     <textarea placeholder="Poznámky..." 
                               onchange="updateNotes(${idx}, this.value)"
-                              ${isCompleted ? 'disabled' : ''}
                               style="min-height:60px;">${State.current.notes[idx] || ''}</textarea>
                 </div>
 
                 <div class="button-group">
-                    ${!isCompleted && !isPlaying ? `
+                    ${!isPlaying ? `
                         <button class="btn btn-warning" onclick="startMatch(${idx})">▶️ Začít zápas</button>
                     ` : ''}
                     ${isPlaying ? `
                         <button class="btn btn-secondary" onclick="finishMatch(${idx})">✅ Ukončit</button>
-                    ` : ''}
-                    ${isCompleted ? `
-                        <button class="btn btn-outline" onclick="editMatch(${idx})">✏️ Upravit</button>
                     ` : ''}
                 </div>
             </div>

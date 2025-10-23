@@ -198,6 +198,14 @@ function editMatch(idx) {
     Matches.edit(idx);
 }
 
+// Toggle match detail
+function toggleMatchDetail(idx) {
+    const matchCard = document.getElementById(`match-${idx}`);
+    if (matchCard) {
+        matchCard.classList.toggle('collapsed');
+    }
+}
+
 // Theme and UI functions
 function openThemeMenu() {
     const modal = document.getElementById('theme-modal');
