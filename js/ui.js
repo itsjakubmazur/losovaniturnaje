@@ -4,17 +4,49 @@ const UI = {
     render() {
         this.updateSteps();
         this.updateTitle();
-        State.save();
-        
-        const content = document.getElementById('app-content');
-        switch(State.current.step) {
-            case 'setup': content.innerHTML = this.renderSetup(); break;
-            case 'participants': content.innerHTML = this.renderParticipants(); break;
-            case 'draw': content.innerHTML = this.renderDraw(); break;
-            case 'matches': content.innerHTML = this.renderMatches(); break;
-            case 'results': content.innerHTML = this.renderResults(); break;
+
+        // Only save if not in read-only mode
+        if (!State.readOnly) {
+            State.save();
         }
-        
+
+        const content = document.getElementById('app-content');
+
+        // Add read-only banner if in shared mode
+        let banner = '';
+        if (State.readOnly) {
+            banner = `
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            padding: 15px 20px;
+                            border-radius: 12px;
+                            margin-bottom: 20px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div>
+                        <strong>👁️ Režim zobrazení</strong>
+                        <p style="margin: 5px 0 0; opacity: 0.9; font-size: 0.9em;">
+                            Prohlížíte sdílený turnaj. Změny nebudou uloženy.
+                        </p>
+                    </div>
+                    <button class="btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white;"
+                            onclick="if(confirm('Uložit tento turnaj lokálně?')) { State.isShared = false; State.readOnly = false; State.save(); window.history.replaceState(null, '', window.location.pathname); Utils.showNotification('Turnaj uložen'); UI.render(); }">
+                        💾 Uložit lokálně
+                    </button>
+                </div>
+            `;
+        }
+
+        switch(State.current.step) {
+            case 'setup': content.innerHTML = banner + this.renderSetup(); break;
+            case 'participants': content.innerHTML = banner + this.renderParticipants(); break;
+            case 'draw': content.innerHTML = banner + this.renderDraw(); break;
+            case 'matches': content.innerHTML = banner + this.renderMatches(); break;
+            case 'results': content.innerHTML = banner + this.renderResults(); break;
+        }
+
         this.attachEventListeners();
     },
 

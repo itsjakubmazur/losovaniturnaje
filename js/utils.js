@@ -153,6 +153,38 @@ const Utils = {
         });
     },
 
+    // Enkódování dat turnaje do URL hash
+    encodeTournamentToURL(tournamentData) {
+        try {
+            const json = JSON.stringify(tournamentData);
+            const compressed = LZString.compressToEncodedURIComponent(json);
+            const baseUrl = window.location.origin + window.location.pathname;
+            return `${baseUrl}#shared=${compressed}`;
+        } catch (e) {
+            console.error('Error encoding tournament:', e);
+            return null;
+        }
+    },
+
+    // Dekódování dat turnaje z URL hash
+    decodeTournamentFromURL() {
+        try {
+            const hash = window.location.hash;
+            if (!hash || !hash.includes('shared=')) {
+                return null;
+            }
+            const compressed = hash.split('shared=')[1];
+            const json = LZString.decompressFromEncodedURIComponent(compressed);
+            if (!json) {
+                return null;
+            }
+            return JSON.parse(json);
+        } catch (e) {
+            console.error('Error decoding tournament:', e);
+            return null;
+        }
+    },
+
     // Generování QR kódu (pomocí Google Charts API)
     generateQRCode(text, size = 200) {
         return `https://chart.googleapis.com/chart?cht=qr&chl=${encodeURIComponent(text)}&chs=${size}x${size}`;
@@ -160,7 +192,13 @@ const Utils = {
 
     // Sdílení turnaje pomocí QR kódu
     showQRCode() {
-        const currentUrl = window.location.href;
+        const shareUrl = this.encodeTournamentToURL(State.current);
+
+        if (!shareUrl) {
+            this.showNotification('Chyba při generování QR kódu', 'error');
+            return;
+        }
+
         const tournamentInfo = `${State.current.tournamentName} - ${State.current.tournamentDate}`;
 
         const modal = document.createElement('div');
@@ -175,16 +213,19 @@ const Utils = {
                     <p style="margin-bottom: 20px; color: var(--text-muted);">
                         Naskenujte QR kód pro zobrazení turnaje
                     </p>
-                    <img src="${this.generateQRCode(currentUrl, 256)}"
+                    <img src="${this.generateQRCode(shareUrl, 256)}"
                          alt="QR kód"
                          style="max-width: 100%; border: 2px solid var(--border); border-radius: 12px; padding: 10px; background: white;">
                     <div style="margin-top: 20px; padding: 15px; background: var(--bg); border-radius: 8px;">
                         <strong>${tournamentInfo}</strong><br>
-                        <small style="color: var(--text-muted); word-break: break-all;">${currentUrl}</small>
+                        <small style="color: var(--text-muted); word-break: break-all;">${shareUrl}</small>
                     </div>
-                    <button class="btn btn-primary" style="margin-top: 15px;" onclick="navigator.clipboard.writeText('${currentUrl}').then(() => Utils.showNotification('Odkaz zkopírován'))">
+                    <button class="btn btn-primary" style="margin-top: 15px;" onclick="navigator.clipboard.writeText('${shareUrl}').then(() => Utils.showNotification('Odkaz zkopírován'))">
                         📋 Kopírovat odkaz
                     </button>
+                    <div style="margin-top: 15px; padding: 10px; background: var(--warning-bg, #fff3cd); border-radius: 8px; font-size: 0.9em;">
+                        <strong>⚠️ Upozornění:</strong> Každá změna výsledků vyžaduje nový QR kód
+                    </div>
                 </div>
             </div>
         `;
