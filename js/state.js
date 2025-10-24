@@ -7,6 +7,7 @@ const State = {
         tournamentDate: new Date().toISOString().split('T')[0],
         participants: [],
         system: 'roundrobin',
+        disciplineType: 'singles', // 'singles' or 'doubles' or 'mixed'
         numGroups: 2,
         numCourts: 1,
         matchDuration: 25,
@@ -102,6 +103,7 @@ const State = {
                 tournamentDate: new Date().toISOString().split('T')[0],
                 participants: [],
                 system: 'roundrobin',
+                disciplineType: 'singles',
                 numGroups: 2,
                 numCourts: 1,
                 matchDuration: 25,

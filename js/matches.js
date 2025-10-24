@@ -12,7 +12,14 @@ const Matches = {
         } else if (State.current.system === 'groups') {
             this.generateGroups();
         } else if (State.current.system === 'knockout') {
-            Playoff.generateBracket(State.current.participants);
+            const filteredParticipants = Utils.filterParticipantsByDiscipline(State.current.participants);
+
+            if (filteredParticipants.length === 0) {
+                Utils.showNotification('Žádní účastníci pro vybranou disciplínu! Zkontrolujte nastavení.', 'error');
+                return;
+            }
+
+            Playoff.generateBracket(filteredParticipants);
         }
         
         goToMatches();
@@ -20,7 +27,14 @@ const Matches = {
     },
 
     generateRoundRobin() {
-        const players = [...State.current.participants];
+        const filteredParticipants = Utils.filterParticipantsByDiscipline(State.current.participants);
+
+        if (filteredParticipants.length === 0) {
+            Utils.showNotification('Žádní účastníci pro vybranou disciplínu! Zkontrolujte nastavení.', 'error');
+            return;
+        }
+
+        const players = [...filteredParticipants];
         if (players.length % 2 === 1) players.push({ name: 'BYE', isBye: true });
         
         const n = players.length;
@@ -57,8 +71,13 @@ const Matches = {
 
         let roundCounter = 0;
         State.current.groups.forEach((group, groupIndex) => {
+            // Filter group members by discipline
+            const filteredGroup = Utils.filterParticipantsByDiscipline(group);
+
+            if (filteredGroup.length === 0) return; // Skip empty groups
+
             const groupLetter = String.fromCharCode(65 + groupIndex);
-            const players = [...group];
+            const players = [...filteredGroup];
             
             if (players.length % 2 === 1) players.push({ name: 'BYE', isBye: true });
             

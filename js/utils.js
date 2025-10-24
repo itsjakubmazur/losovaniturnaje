@@ -15,6 +15,22 @@ const Utils = {
         return partner ? `${name} & ${partner}` : name;
     },
 
+    // Filtrování účastníků podle typu disciplíny
+    filterParticipantsByDiscipline(participants) {
+        const disciplineType = State.current.disciplineType;
+
+        if (disciplineType === 'singles') {
+            // Pouze jednotlivci (bez partnera)
+            return participants.filter(p => !p.partner);
+        } else if (disciplineType === 'doubles') {
+            // Pouze páry (s partnerem)
+            return participants.filter(p => p.partner);
+        } else {
+            // Mixed - všichni
+            return participants;
+        }
+    },
+
     // Kontrola zda je číslo mocnina 2
     isPowerOfTwo(n) {
         return n > 0 && (n & (n - 1)) === 0;

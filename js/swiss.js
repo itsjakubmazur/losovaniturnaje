@@ -3,7 +3,14 @@
 const Swiss = {
     generateFirstRound() {
         // První kolo - párování podle nasazení
-        const sorted = [...State.current.participants].sort((a, b) => (b.seed || 5) - (a.seed || 5));
+        const filteredParticipants = Utils.filterParticipantsByDiscipline(State.current.participants);
+
+        if (filteredParticipants.length === 0) {
+            Utils.showNotification('Žádní účastníci pro vybranou disciplínu! Zkontrolujte nastavení.', 'error');
+            return;
+        }
+
+        const sorted = [...filteredParticipants].sort((a, b) => (b.seed || 5) - (a.seed || 5));
         const half = Math.floor(sorted.length / 2);
         
         const topHalf = sorted.slice(0, half);

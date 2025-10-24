@@ -102,6 +102,30 @@ const UI = {
                     </div>
                 </div>
 
+                <h3 style="margin-top: 30px; margin-bottom: 15px; color: var(--primary);">🏸 Typ disciplíny</h3>
+
+                <div class="input-group">
+                    <div class="system-options" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                        <div class="system-option ${State.current.disciplineType === 'singles' ? 'active' : ''}" data-discipline="singles">
+                            <div style="font-size:2.5em;">👤</div>
+                            <h3>Dvouhra</h3>
+                            <p>Jednotlivci hrají proti sobě (1 vs 1)</p>
+                        </div>
+                        <div class="system-option ${State.current.disciplineType === 'doubles' ? 'active' : ''}" data-discipline="doubles">
+                            <div style="font-size:2.5em;">👥</div>
+                            <h3>Čtyřhra</h3>
+                            <p>Páry hrají proti sobě (2 vs 2)</p>
+                        </div>
+                        <div class="system-option ${State.current.disciplineType === 'mixed' ? 'active' : ''}" data-discipline="mixed">
+                            <div style="font-size:2.5em;">🔀</div>
+                            <h3>Smíšené</h3>
+                            <p>Dvouhry i čtyřhry dohromady</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 30px; margin-bottom: 15px; color: var(--primary);">🎯 Herní systém</h3>
+
                 <div class="input-group">
                     <label>${i18n.t('setup.system')}</label>
                     <div class="system-options">
@@ -531,9 +555,17 @@ const UI = {
             });
         }
 
-        document.querySelectorAll('.system-option').forEach(opt => {
+        document.querySelectorAll('.system-option[data-system]').forEach(opt => {
             opt.addEventListener('click', () => {
                 State.current.system = opt.dataset.system;
+                this.render();
+            });
+        });
+
+        document.querySelectorAll('.system-option[data-discipline]').forEach(opt => {
+            opt.addEventListener('click', () => {
+                State.current.disciplineType = opt.dataset.discipline;
+                State.save();
                 this.render();
             });
         });
