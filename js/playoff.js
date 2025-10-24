@@ -318,8 +318,8 @@ const Playoff = {
             p2Score = p2Sets;
         }
         
-        const p1Name = match.player1?.name || match.player1 || 'TBD';
-        const p2Name = match.player2?.name || match.player2 || 'TBD';
+        const p1Name = Utils.getPlayerDisplayName(match.player1);
+        const p2Name = Utils.getPlayerDisplayName(match.player2);
         const p1Seed = match.player1?.seed || '';
         const p2Seed = match.player2?.seed || '';
         

@@ -14,8 +14,8 @@ const Export = {
                 match: i + 1,
                 round: m.round + 1,
                 court: m.court,
-                player1: m.player1.name || m.player1,
-                player2: m.player2.name || m.player2,
+                player1: Utils.getPlayerDisplayName(m.player1),
+                player2: Utils.getPlayerDisplayName(m.player2),
                 sets: m.sets,
                 completed: m.completed,
                 notes: State.current.notes[i] || ''
@@ -132,9 +132,9 @@ const Export = {
 
             matchesHTML += `
                 <div class="match-result${status}">
-                    <span class="${p1Class}">${m.player1.name || m.player1}</span>
+                    <span class="${p1Class}">${Utils.getPlayerDisplayName(m.player1)}</span>
                     <strong>${m.sets ? m.sets.map(s => `${s.score1 || 0}:${s.score2 || 0}`).join(' ') : '-'}</strong>
-                    <span class="${p2Class}">${m.player2.name || m.player2}</span>
+                    <span class="${p2Class}">${Utils.getPlayerDisplayName(m.player2)}</span>
                 </div>
             `;
         });

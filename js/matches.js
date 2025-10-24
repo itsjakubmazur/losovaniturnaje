@@ -12,7 +12,14 @@ const Matches = {
         } else if (State.current.system === 'groups') {
             this.generateGroups();
         } else if (State.current.system === 'knockout') {
-            Playoff.generateBracket(State.current.participants);
+            const filteredParticipants = Utils.filterParticipantsByDiscipline(State.current.participants);
+
+            if (filteredParticipants.length === 0) {
+                Utils.showNotification('Žádní účastníci pro vybranou disciplínu! Zkontrolujte nastavení.', 'error');
+                return;
+            }
+
+            Playoff.generateBracket(filteredParticipants);
         }
         
         goToMatches();
@@ -20,7 +27,14 @@ const Matches = {
     },
 
     generateRoundRobin() {
-        const players = [...State.current.participants];
+        const filteredParticipants = Utils.filterParticipantsByDiscipline(State.current.participants);
+
+        if (filteredParticipants.length === 0) {
+            Utils.showNotification('Žádní účastníci pro vybranou disciplínu! Zkontrolujte nastavení.', 'error');
+            return;
+        }
+
+        const players = [...filteredParticipants];
         if (players.length % 2 === 1) players.push({ name: 'BYE', isBye: true });
         
         const n = players.length;
@@ -57,8 +71,13 @@ const Matches = {
 
         let roundCounter = 0;
         State.current.groups.forEach((group, groupIndex) => {
+            // Filter group members by discipline
+            const filteredGroup = Utils.filterParticipantsByDiscipline(group);
+
+            if (filteredGroup.length === 0) return; // Skip empty groups
+
             const groupLetter = String.fromCharCode(65 + groupIndex);
-            const players = [...group];
+            const players = [...filteredGroup];
             
             if (players.length % 2 === 1) players.push({ name: 'BYE', isBye: true });
             
@@ -128,8 +147,8 @@ const Matches = {
             scoreDisplay = `${p1Sets}:${p2Sets}`;
         }
 
-        const p1Name = match.player1.name || match.player1;
-        const p2Name = match.player2.name || match.player2;
+        const p1Name = Utils.getPlayerDisplayName(match.player1);
+        const p2Name = Utils.getPlayerDisplayName(match.player2);
 
         // Kompaktní verze pro dokončené zápasy
         if (isCompleted) {
@@ -302,23 +321,24 @@ const Matches = {
             }
         });
 
-        if (!allSetsValid) {
-            Utils.showNotification('Neplatné skóre v setech!', 'error');
-            return;
-        }
-
         // Pro Best of 1 stačí jeden vyplněný set
         if (State.current.bestOf === 1) {
             if (filledSets < 1) {
                 Utils.showNotification('Vyplňte skóre setu!', 'error');
                 return;
             }
-        } else {
-            // Pro Best of 3/5 musí být rozhodnuto
+        }
+
+        // Varování pro nestandardní skóre (ale povolit uložení)
+        if (!allSetsValid) {
+            Utils.showNotification('⚠️ Varování: Nestandardní skóre! Zkontrolujte, zda je zadáno správně.', 'error');
+        }
+
+        // Pro Best of 3/5 - varování pokud není rozhodnuto (ale povolit remízy a zápasy na čas)
+        if (State.current.bestOf > 1) {
             const requiredSets = Math.ceil(State.current.bestOf / 2);
-            if (p1SetsWon < requiredSets && p2SetsWon < requiredSets) {
-                Utils.showNotification('Není rozhodnuto! Chybí vítězné sety.', 'error');
-                return;
+            if (p1SetsWon < requiredSets && p2SetsWon < requiredSets && filledSets > 0) {
+                Utils.showNotification('⚠️ Varování: Zápas není rozhodnut standardním způsobem (možná remíza nebo zápas na čas).', 'error');
             }
         }
 

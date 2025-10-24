@@ -3,7 +3,14 @@
 const Swiss = {
     generateFirstRound() {
         // První kolo - párování podle nasazení
-        const sorted = [...State.current.participants].sort((a, b) => (b.seed || 5) - (a.seed || 5));
+        const filteredParticipants = Utils.filterParticipantsByDiscipline(State.current.participants);
+
+        if (filteredParticipants.length === 0) {
+            Utils.showNotification('Žádní účastníci pro vybranou disciplínu! Zkontrolujte nastavení.', 'error');
+            return;
+        }
+
+        const sorted = [...filteredParticipants].sort((a, b) => (b.seed || 5) - (a.seed || 5));
         const half = Math.floor(sorted.length / 2);
         
         const topHalf = sorted.slice(0, half);
@@ -67,9 +74,13 @@ const Swiss = {
     },
 
     havePlayed(p1, p2) {
-        return State.current.matches.some(m => 
-            (m.player1.name === p1.name && m.player2.name === p2.name) ||
-            (m.player1.name === p2.name && m.player2.name === p1.name)
-        );
+        const p1Name = Utils.getPlayerDisplayName(p1);
+        const p2Name = Utils.getPlayerDisplayName(p2);
+        return State.current.matches.some(m => {
+            const m1Name = Utils.getPlayerDisplayName(m.player1);
+            const m2Name = Utils.getPlayerDisplayName(m.player2);
+            return (m1Name === p1Name && m2Name === p2Name) ||
+                   (m1Name === p2Name && m2Name === p1Name);
+        });
     }
 };

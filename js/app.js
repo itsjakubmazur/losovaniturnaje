@@ -151,7 +151,14 @@ function autoFillParticipants() {
 // Draw functions
 function performDraw() {
     if (State.current.system === 'groups') {
-        const shuffled = Utils.shuffle(State.current.participants);
+        const filteredParticipants = Utils.filterParticipantsByDiscipline(State.current.participants);
+
+        if (filteredParticipants.length === 0) {
+            Utils.showNotification('Žádní účastníci pro vybranou disciplínu! Zkontrolujte nastavení.', 'error');
+            return;
+        }
+
+        const shuffled = Utils.shuffle(filteredParticipants);
         const perGroup = Math.ceil(shuffled.length / State.current.numGroups);
         
         State.current.groups = [];
