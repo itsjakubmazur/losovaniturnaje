@@ -371,7 +371,7 @@ const UI = {
                                 <div class="queue-item">
                                     <div class="queue-position">${i + 1}</div>
                                     <div style="flex: 1;">
-                                        <strong>${item.player1.name || item.player1}</strong> vs <strong>${item.player2.name || item.player2}</strong>
+                                        <strong>${Utils.getPlayerDisplayName(item.player1)}</strong> vs <strong>${Utils.getPlayerDisplayName(item.player2)}</strong>
                                     </div>
                                     <div style="color: var(--text-muted); font-size: 0.875em;">${item.eta}</div>
                                 </div>

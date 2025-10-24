@@ -22,9 +22,9 @@ const Stats = {
         
         State.current.matches.forEach(m => {
             if (!m.completed || !m.sets) return;
-            
-            const p1Name = m.player1.name || m.player1;
-            const p2Name = m.player2.name || m.player2;
+
+            const p1Name = Utils.getPlayerDisplayName(m.player1);
+            const p2Name = Utils.getPlayerDisplayName(m.player2);
             
             stats[p1Name].played++;
             stats[p2Name].played++;
@@ -89,8 +89,8 @@ const Stats = {
             tournament.fullData.matches.forEach(m => {
                 if (!m.completed || !m.sets) return;
 
-                const p1Name = m.player1.name || m.player1;
-                const p2Name = m.player2.name || m.player2;
+                const p1Name = Utils.getPlayerDisplayName(m.player1);
+                const p2Name = Utils.getPlayerDisplayName(m.player2);
 
                 // Initialize players
                 if (!playerStats[p1Name]) {

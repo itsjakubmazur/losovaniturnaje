@@ -128,8 +128,8 @@ const Matches = {
             scoreDisplay = `${p1Sets}:${p2Sets}`;
         }
 
-        const p1Name = match.player1.name || match.player1;
-        const p2Name = match.player2.name || match.player2;
+        const p1Name = Utils.getPlayerDisplayName(match.player1);
+        const p2Name = Utils.getPlayerDisplayName(match.player2);
 
         // Kompaktní verze pro dokončené zápasy
         if (isCompleted) {
@@ -302,23 +302,24 @@ const Matches = {
             }
         });
 
-        if (!allSetsValid) {
-            Utils.showNotification('Neplatné skóre v setech!', 'error');
-            return;
-        }
-
         // Pro Best of 1 stačí jeden vyplněný set
         if (State.current.bestOf === 1) {
             if (filledSets < 1) {
                 Utils.showNotification('Vyplňte skóre setu!', 'error');
                 return;
             }
-        } else {
-            // Pro Best of 3/5 musí být rozhodnuto
+        }
+
+        // Varování pro nestandardní skóre (ale povolit uložení)
+        if (!allSetsValid) {
+            Utils.showNotification('⚠️ Varování: Nestandardní skóre! Zkontrolujte, zda je zadáno správně.', 'error');
+        }
+
+        // Pro Best of 3/5 - varování pokud není rozhodnuto (ale povolit remízy a zápasy na čas)
+        if (State.current.bestOf > 1) {
             const requiredSets = Math.ceil(State.current.bestOf / 2);
-            if (p1SetsWon < requiredSets && p2SetsWon < requiredSets) {
-                Utils.showNotification('Není rozhodnuto! Chybí vítězné sety.', 'error');
-                return;
+            if (p1SetsWon < requiredSets && p2SetsWon < requiredSets && filledSets > 0) {
+                Utils.showNotification('⚠️ Varování: Zápas není rozhodnut standardním způsobem (možná remíza nebo zápas na čas).', 'error');
             }
         }
 

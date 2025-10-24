@@ -7,6 +7,14 @@ const Utils = {
         return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     },
 
+    // Získání celého jména hráče/páru pro zobrazení
+    getPlayerDisplayName(player) {
+        if (!player) return 'TBD';
+        const name = player.name || player;
+        const partner = player.partner;
+        return partner ? `${name} & ${partner}` : name;
+    },
+
     // Kontrola zda je číslo mocnina 2
     isPowerOfTwo(n) {
         return n > 0 && (n & (n - 1)) === 0;
