@@ -173,15 +173,80 @@ const Export = {
         Utils.showNotification('PDF se generuje...');
     },
 
+    generateSocialShareText() {
+        const tournament = State.current;
+        const winner = tournament.standings[0];
+
+        let text = `🏸 ${tournament.tournamentName}\n`;
+        text += `📅 ${Utils.formatDate(tournament.tournamentDate)}\n\n`;
+        text += `🏆 Vítěz: ${winner?.player || '-'}\n`;
+        text += `👥 ${tournament.participants.length} účastníků\n`;
+        text += `⚽ ${tournament.matches.length} zápasů\n\n`;
+
+        if (tournament.standings.length >= 3) {
+            text += `🥇 ${tournament.standings[0]?.player}\n`;
+            text += `🥈 ${tournament.standings[1]?.player}\n`;
+            text += `🥉 ${tournament.standings[2]?.player}\n`;
+        }
+
+        return text;
+    },
+
+    shareToTwitter() {
+        const text = this.generateSocialShareText();
+        const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
+        Utils.showNotification('Otevírám Twitter...');
+    },
+
+    shareToFacebook() {
+        const text = this.generateSocialShareText();
+        const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
+        Utils.showNotification('Otevírám Facebook...');
+    },
+
+    copyShareText() {
+        const text = this.generateSocialShareText();
+        navigator.clipboard.writeText(text).then(() => {
+            Utils.showNotification('Text zkopírován do schránky!');
+        }).catch(() => {
+            Utils.showNotification('Chyba při kopírování', 'error');
+        });
+    },
+
+    shareViaWebShare() {
+        const text = this.generateSocialShareText();
+
+        if (navigator.share) {
+            navigator.share({
+                title: State.current.tournamentName,
+                text: text,
+                url: window.location.href
+            }).then(() => {
+                Utils.showNotification('Turnaj sdílen!');
+            }).catch((err) => {
+                if (err.name !== 'AbortError') {
+                    Utils.showNotification('Chyba při sdílení', 'error');
+                }
+            });
+        } else {
+            // Fallback - copy to clipboard
+            this.copyShareText();
+        }
+    },
+
     menu() {
         const modal = document.getElementById('export-modal');
         modal.innerHTML = `
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>📤 Export dat</h3>
+                    <h3>📤 Export & Sdílení</h3>
                     <button class="modal-close" onclick="UI.closeModal('export-modal')">×</button>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 15px;">
+
+                <h4 style="margin-top: 20px; margin-bottom: 10px; color: var(--primary);">📊 Export dat</h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
                     <button class="btn btn-danger" onclick="Export.toPDF(); UI.closeModal('export-modal')">
                         📄 Exportovat PDF
                     </button>
@@ -190,6 +255,24 @@ const Export = {
                     </button>
                     <button class="btn btn-secondary" onclick="Export.toCSV(); UI.closeModal('export-modal')">
                         📊 Exportovat CSV (Excel)
+                    </button>
+                </div>
+
+                <h4 style="margin-top: 30px; margin-bottom: 10px; color: var(--primary);">📱 Sdílení</h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    ${navigator.share ? `
+                        <button class="btn btn-warning" onclick="Export.shareViaWebShare()">
+                            📤 Sdílet
+                        </button>
+                    ` : ''}
+                    <button class="btn btn-info" onclick="Export.shareToTwitter()">
+                        🐦 Sdílet na Twitter
+                    </button>
+                    <button class="btn btn-info" onclick="Export.shareToFacebook()">
+                        👥 Sdílet na Facebook
+                    </button>
+                    <button class="btn btn-outline" onclick="Export.copyShareText()">
+                        📋 Zkopírovat text
                     </button>
                 </div>
             </div>

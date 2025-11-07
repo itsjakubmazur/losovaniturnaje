@@ -4,7 +4,7 @@
 function init() {
     State.load();
     UI.render();
-    
+
     // Update timers every second
     setInterval(() => {
         State.current.matches.forEach((m, i) => {
@@ -16,6 +16,67 @@ function init() {
             }
         });
     }, 1000);
+
+    // Setup keyboard shortcuts for quick score mode
+    setupKeyboardShortcuts();
+}
+
+// Keyboard shortcuts for quick scoring and general shortcuts
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Global shortcuts (Ctrl+Z, Ctrl+Y)
+        if (e.ctrlKey || e.metaKey) {
+            if (e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                undoAction();
+                return;
+            }
+            if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
+                e.preventDefault();
+                redoAction();
+                return;
+            }
+        }
+
+        // Only if quick score mode is active and on matches page
+        if (!State.current.quickScoreMode || State.current.step !== 'matches') return;
+
+        // Find currently playing match
+        const playingMatchIdx = State.current.matches.findIndex(m => m.playing);
+        if (playingMatchIdx === -1) return;
+
+        const match = State.current.matches[playingMatchIdx];
+
+        // Find current set (first incomplete set)
+        const currentSetIdx = match.sets.findIndex(s => s.score1 === null || s.score2 === null);
+        if (currentSetIdx === -1) return;
+
+        // Don't trigger if user is typing in input/textarea
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        switch(e.key.toLowerCase()) {
+            case 'q': // Player 1 decrease
+                e.preventDefault();
+                quickScoreAdjust(playingMatchIdx, currentSetIdx, 1, -1);
+                break;
+            case 'w': // Player 1 increase
+                e.preventDefault();
+                quickScoreAdjust(playingMatchIdx, currentSetIdx, 1, 1);
+                break;
+            case 'a': // Player 2 decrease
+                e.preventDefault();
+                quickScoreAdjust(playingMatchIdx, currentSetIdx, 2, -1);
+                break;
+            case 's': // Player 2 increase
+                e.preventDefault();
+                quickScoreAdjust(playingMatchIdx, currentSetIdx, 2, 1);
+                break;
+            case 'escape': // Exit quick score mode
+                e.preventDefault();
+                toggleQuickScoreMode();
+                break;
+        }
+    });
 }
 
 // Navigation functions
@@ -178,14 +239,57 @@ function performDraw() {
 function updateSet(matchIdx, setIdx, player, value) {
     const score = value === '' ? null : parseInt(value);
     const match = State.current.matches[matchIdx];
-    
+
     if (player === 1) {
         match.sets[setIdx].score1 = score;
     } else {
         match.sets[setIdx].score2 = score;
     }
-    
+
     State.save();
+}
+
+// Quick score mode toggle
+function toggleQuickScoreMode(matchIdx) {
+    State.current.quickScoreMode = !State.current.quickScoreMode;
+    State.save();
+    UI.render();
+
+    // Show keyboard shortcut hints
+    if (State.current.quickScoreMode) {
+        Utils.showNotification('Rychlý režim aktivován! Klávesy: Q/W = hráč 1, A/S = hráč 2');
+    } else {
+        Utils.showNotification('Normální režim aktivován');
+    }
+}
+
+// Quick score adjust - increment or decrement score
+function quickScoreAdjust(matchIdx, setIdx, player, delta) {
+    const match = State.current.matches[matchIdx];
+    const set = match.sets[setIdx];
+
+    if (player === 1) {
+        const current = set.score1 !== null ? set.score1 : 0;
+        const newScore = Math.max(0, Math.min(State.current.tieBreakPoints, current + delta));
+        set.score1 = newScore;
+    } else {
+        const current = set.score2 !== null ? set.score2 : 0;
+        const newScore = Math.max(0, Math.min(State.current.tieBreakPoints, current + delta));
+        set.score2 = newScore;
+    }
+
+    State.save();
+    UI.render();
+}
+
+// Quick score presets - common scores
+function quickScorePreset(matchIdx, setIdx, score1, score2) {
+    const match = State.current.matches[matchIdx];
+    match.sets[setIdx].score1 = score1;
+    match.sets[setIdx].score2 = score2;
+    State.save();
+    UI.render();
+    Utils.showNotification(`Nastaveno ${score1}:${score2}`);
 }
 
 function updateNotes(matchIdx, notes) {
@@ -313,6 +417,104 @@ function scrollToMatch(idx) {
             }, 2000);
         }
     }, 100);
+}
+
+// Undo/Redo functions
+function undoAction() {
+    if (State.undo()) {
+        UI.render();
+        updateUndoRedoButtons();
+    }
+}
+
+function redoAction() {
+    if (State.redo()) {
+        UI.render();
+        updateUndoRedoButtons();
+    }
+}
+
+function updateUndoRedoButtons() {
+    const undoBtn = document.getElementById('undo-btn');
+    const redoBtn = document.getElementById('redo-btn');
+
+    if (undoBtn) {
+        undoBtn.disabled = State.undoStack.length === 0;
+        undoBtn.style.opacity = State.undoStack.length === 0 ? '0.3' : '1';
+    }
+
+    if (redoBtn) {
+        redoBtn.disabled = State.redoStack.length === 0;
+        redoBtn.style.opacity = State.redoStack.length === 0 ? '0.3' : '1';
+    }
+}
+
+// Match filtering
+let currentMatchFilter = 'all';
+
+function setMatchFilter(filter) {
+    currentMatchFilter = filter;
+
+    // Update button states
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.filter === filter) {
+            btn.classList.add('active');
+        }
+    });
+
+    filterMatches();
+}
+
+function filterMatches() {
+    const searchTerm = document.getElementById('match-search')?.value.toLowerCase() || '';
+
+    document.querySelectorAll('.round-section').forEach(section => {
+        const matches = section.querySelectorAll('.match-card');
+        let visibleCount = 0;
+
+        matches.forEach(card => {
+            const matchIdx = parseInt(card.dataset.match);
+            const match = State.current.matches[matchIdx];
+
+            if (!match) {
+                card.style.display = 'none';
+                return;
+            }
+
+            const p1Name = Utils.getPlayerDisplayName(match.player1).toLowerCase();
+            const p2Name = Utils.getPlayerDisplayName(match.player2).toLowerCase();
+
+            // Check filter
+            let passesFilter = true;
+            if (currentMatchFilter === 'completed') {
+                passesFilter = match.completed;
+            } else if (currentMatchFilter === 'playing') {
+                passesFilter = match.playing;
+            } else if (currentMatchFilter === 'pending') {
+                passesFilter = !match.completed && !match.playing;
+            }
+
+            // Check search
+            const passesSearch = searchTerm === '' ||
+                                p1Name.includes(searchTerm) ||
+                                p2Name.includes(searchTerm);
+
+            if (passesFilter && passesSearch) {
+                card.style.display = '';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // Hide round section if no visible matches
+        if (visibleCount === 0) {
+            section.style.display = 'none';
+        } else {
+            section.style.display = '';
+        }
+    });
 }
 
 // Start app when DOM is ready

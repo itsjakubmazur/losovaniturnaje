@@ -141,6 +141,7 @@ input:focus, select:focus, textarea:focus {
 .btn-warning { background: var(--warning); color: white; }
 .btn-info { background: var(--info); color: white; }
 .btn-outline { background: transparent; color: var(--primary); border: 2px solid var(--primary); }
+.btn-outline.active { background: var(--primary); color: white; }
 
 .btn:hover { transform: translateY(-2px); opacity: 0.9; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
@@ -345,6 +346,31 @@ input:focus, select:focus, textarea:focus {
 }
 
 .set-input { text-align: center; padding: 8px; }
+
+.quick-score-btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    width: 40px;
+    height: 40px;
+    font-size: 1.5em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quick-score-btn:hover {
+    background: var(--primary-dark);
+    transform: scale(1.1);
+}
+
+.quick-score-btn:active {
+    transform: scale(0.95);
+}
 
 .queue-section {
     background: var(--bg);

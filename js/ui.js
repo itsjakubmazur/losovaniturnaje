@@ -385,7 +385,11 @@ const UI = {
                     <div class="progress-fill" style="width: ${progress}%"></div>
                 </div>
 
+                ${this.renderMatchFilters()}
+
                 ${State.current.playoffBracket ? Playoff.renderBracket() : ''}
+
+                ${State.current.system === 'groups' && !State.current.playoffBracket ? this.renderGroupStandings() : ''}
 
                 ${queue.length > 0 ? `
                     <div class="queue-section">
@@ -532,6 +536,90 @@ const UI = {
                         <button class="btn btn-primary" onclick="saveToHistory()">💾 ${i18n.currentLang === 'cs' ? 'Uložit do historie' : 'Save to History'}</button>
                         <button class="btn btn-danger" onclick="if(State.reset()) UI.render()">🆕 ${i18n.currentLang === 'cs' ? 'Nový turnaj' : 'New Tournament'}</button>
                     ` : ''}
+                </div>
+            </div>
+        `;
+    },
+
+    renderMatchFilters() {
+        return `
+            <div style="background: var(--bg); padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                <div style="flex: 1; min-width: 200px;">
+                    <input type="text" id="match-search" placeholder="🔍 Vyhledat hráče..."
+                           style="width: 100%; padding: 10px 15px; margin: 0;"
+                           oninput="filterMatches()">
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-outline filter-btn active" data-filter="all" onclick="setMatchFilter('all')">
+                        Všechny (${State.current.matches.length})
+                    </button>
+                    <button class="btn btn-outline filter-btn" data-filter="pending" onclick="setMatchFilter('pending')">
+                        Čekající (${State.current.matches.filter(m => !m.completed && !m.playing).length})
+                    </button>
+                    <button class="btn btn-outline filter-btn" data-filter="playing" onclick="setMatchFilter('playing')">
+                        Probíhající (${State.current.matches.filter(m => m.playing).length})
+                    </button>
+                    <button class="btn btn-outline filter-btn" data-filter="completed" onclick="setMatchFilter('completed')">
+                        Dokončené (${State.current.matches.filter(m => m.completed).length})
+                    </button>
+                </div>
+            </div>
+        `;
+    },
+
+    renderGroupStandings() {
+        const groupStandings = Stats.calculateGroupStandings();
+        if (!groupStandings) return '';
+
+        return `
+            <div style="background: var(--bg); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                <h3 style="color: var(--primary); margin-bottom: 20px;">📊 Tabulky skupin</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
+                    ${Object.keys(groupStandings).map(groupLetter => {
+                        const standings = groupStandings[groupLetter];
+                        return `
+                            <div style="background: var(--card); border-radius: 12px; overflow: hidden; border: 2px solid var(--border);">
+                                <div style="background: var(--primary); color: white; padding: 12px 15px; font-weight: bold;">
+                                    Skupina ${groupLetter}
+                                </div>
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%; margin: 0;">
+                                        <thead>
+                                            <tr style="background: var(--bg);">
+                                                <th style="padding: 10px; font-size: 0.875em;">#</th>
+                                                <th style="padding: 10px; text-align: left; font-size: 0.875em;">Hráč</th>
+                                                <th style="padding: 10px; font-size: 0.875em;">Z</th>
+                                                <th style="padding: 10px; font-size: 0.875em;">V</th>
+                                                <th style="padding: 10px; font-size: 0.875em;">P</th>
+                                                <th style="padding: 10px; font-size: 0.875em;">S</th>
+                                                <th style="padding: 10px; font-size: 0.875em; font-weight: bold;">B</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${standings.map((s, i) => `
+                                                <tr style="border-bottom: 1px solid var(--border);">
+                                                    <td style="padding: 10px; text-align: center;">
+                                                        ${i < 2 ? `<span style="display:inline-block;width:24px;height:24px;border-radius:50%;background:var(--secondary);color:white;line-height:24px;font-weight:bold;font-size:0.875em;">${i + 1}</span>` : i + 1}
+                                                    </td>
+                                                    <td style="padding: 10px; font-weight: 500;">${s.player}</td>
+                                                    <td style="padding: 10px; text-align: center;">${s.played}</td>
+                                                    <td style="padding: 10px; text-align: center; color: var(--secondary);">${s.wins}</td>
+                                                    <td style="padding: 10px; text-align: center; color: var(--danger);">${s.losses}</td>
+                                                    <td style="padding: 10px; text-align: center; font-size: 0.875em;">${s.setsWon}:${s.setsLost}</td>
+                                                    <td style="padding: 10px; text-align: center; font-weight: bold; color: var(--primary); font-size: 1.1em;">${s.points}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                ${standings.length > 0 && standings[0].played > 0 ? `
+                                    <div style="padding: 10px 15px; background: var(--bg); font-size: 0.875em; color: var(--text-muted);">
+                                        💡 Top 2 postupují do playoff
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             </div>
         `;
