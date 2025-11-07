@@ -18,6 +18,8 @@
                 <p id="tournament-subtitle">Správa turnajů</p>
             </div>
             <div class="header-right">
+                <button class="icon-btn" onclick="undoAction()" title="Zpět (Ctrl+Z)" id="undo-btn">↶</button>
+                <button class="icon-btn" onclick="redoAction()" title="Vpřed (Ctrl+Y)" id="redo-btn">↷</button>
                 <button class="icon-btn" onclick="i18n.showLanguageSelector()" title="Jazyk / Language">🌍</button>
                 <button class="icon-btn" onclick="State.showBackupMenu()" title="Záloha dat">☁️</button>
                 <button class="icon-btn" onclick="Utils.showQRCode()" title="QR kód - Sdílet">📱</button>

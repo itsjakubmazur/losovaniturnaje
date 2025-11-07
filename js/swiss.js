@@ -32,7 +32,7 @@ const Swiss = {
     generateNextRound() {
         // Calculate current standings
         Stats.calculate();
-        
+
         // Group players by points
         const byPoints = {};
         State.current.standings.forEach(s => {
@@ -40,23 +40,65 @@ const Swiss = {
             byPoints[s.points].push(s.player);
         });
 
-        // Pair players within same point groups
+        // Pair players within same point groups with intelligent matching
         const newMatches = [];
         const paired = new Set();
-        
+
+        const allPlayers = State.current.standings.map(s => s.player);
+
         Object.keys(byPoints).sort((a, b) => b - a).forEach(points => {
             const players = byPoints[points].filter(p => !paired.has(p));
-            
-            for (let i = 0; i < players.length - 1; i += 2) {
+
+            // Try to pair players in this point group
+            for (let i = 0; i < players.length; i++) {
+                if (paired.has(players[i])) continue;
+
                 const p1 = State.current.participants.find(p => p.name === players[i]);
-                const p2 = State.current.participants.find(p => p.name === players[i + 1]);
-                
-                if (p1 && p2 && !this.havePlayed(p1, p2)) {
+                let p2 = null;
+
+                // First try to find opponent in same point group who hasn't played against p1
+                for (let j = i + 1; j < players.length; j++) {
+                    if (paired.has(players[j])) continue;
+
+                    const candidate = State.current.participants.find(p => p.name === players[j]);
+                    if (candidate && !this.havePlayed(p1, candidate)) {
+                        p2 = candidate;
+                        paired.add(players[j]);
+                        break;
+                    }
+                }
+
+                // If no opponent found in same group, try closest point groups
+                if (!p2) {
+                    const currentPoints = parseInt(points);
+                    const otherPlayers = allPlayers.filter(p =>
+                        !paired.has(p) && p !== players[i]
+                    );
+
+                    // Sort by point difference (prefer closer ratings)
+                    otherPlayers.sort((a, b) => {
+                        const aStanding = State.current.standings.find(s => s.player === a);
+                        const bStanding = State.current.standings.find(s => s.player === b);
+                        const aDiff = Math.abs((aStanding?.points || 0) - currentPoints);
+                        const bDiff = Math.abs((bStanding?.points || 0) - currentPoints);
+                        return aDiff - bDiff;
+                    });
+
+                    for (const candidateName of otherPlayers) {
+                        const candidate = State.current.participants.find(p => p.name === candidateName);
+                        if (candidate && !this.havePlayed(p1, candidate)) {
+                            p2 = candidate;
+                            paired.add(candidateName);
+                            break;
+                        }
+                    }
+                }
+
+                if (p1 && p2) {
                     newMatches.push(
                         Matches.createMatch(p1, p2, State.current.swissRound, (newMatches.length % State.current.numCourts) + 1)
                     );
                     paired.add(players[i]);
-                    paired.add(players[i + 1]);
                 }
             }
         });
@@ -67,7 +109,7 @@ const Swiss = {
             State.current.matches.push(...newMatches);
             State.save();
             UI.render();
-            Utils.showNotification(`Kolo ${State.current.swissRound} vygenerováno`);
+            Utils.showNotification(`Kolo ${State.current.swissRound} vygenerováno - ${newMatches.length} zápasů`);
         } else {
             Utils.showNotification('Nelze vygenerovat další kolo', 'error');
         }

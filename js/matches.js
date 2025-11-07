@@ -136,10 +136,10 @@ const Matches = {
         const idx = State.current.matches.indexOf(match);
         const isCompleted = match.completed;
         const isPlaying = match.playing;
-        
+
         let winner = null;
         let scoreDisplay = '';
-        
+
         if (isCompleted && match.sets) {
             const p1Sets = match.sets.filter(s => s.score1 > s.score2).length;
             const p2Sets = match.sets.filter(s => s.score2 > s.score1).length;
@@ -149,6 +149,9 @@ const Matches = {
 
         const p1Name = Utils.getPlayerDisplayName(match.player1);
         const p2Name = Utils.getPlayerDisplayName(match.player2);
+
+        // Quick score mode - check if enabled
+        const quickScoreMode = State.current.quickScoreMode || false;
 
         // Kompaktní verze pro dokončené zápasy
         if (isCompleted) {
@@ -251,15 +254,39 @@ const Matches = {
                     ${match.sets.map((set, setIdx) => `
                         <div class="set-row">
                             <span style="color:var(--text-muted);font-size:0.875em;font-weight:500;">Set ${setIdx + 1}:</span>
-                            <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
-                                   value="${set.score1 !== null ? set.score1 : ''}"
-                                   placeholder="0"
-                                   onchange="updateSet(${idx}, ${setIdx}, 1, this.value)">
-                            <span style="text-align:center;">:</span>
-                            <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
-                                   value="${set.score2 !== null ? set.score2 : ''}"
-                                   placeholder="0"
-                                   onchange="updateSet(${idx}, ${setIdx}, 2, this.value)">
+                            ${quickScoreMode ? `
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <button class="quick-score-btn" onclick="quickScoreAdjust(${idx}, ${setIdx}, 1, -1)" title="Snížit skóre">−</button>
+                                    <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
+                                           value="${set.score1 !== null ? set.score1 : ''}"
+                                           placeholder="0"
+                                           onchange="updateSet(${idx}, ${setIdx}, 1, this.value)"
+                                           id="match-${idx}-set-${setIdx}-p1">
+                                    <button class="quick-score-btn" onclick="quickScoreAdjust(${idx}, ${setIdx}, 1, 1)" title="Zvýšit skóre">+</button>
+                                </div>
+                                <span style="text-align:center;font-weight:bold;font-size:1.2em;">:</span>
+                                <div style="display:flex;align-items:center;gap:5px;">
+                                    <button class="quick-score-btn" onclick="quickScoreAdjust(${idx}, ${setIdx}, 2, -1)" title="Snížit skóre">−</button>
+                                    <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
+                                           value="${set.score2 !== null ? set.score2 : ''}"
+                                           placeholder="0"
+                                           onchange="updateSet(${idx}, ${setIdx}, 2, this.value)"
+                                           id="match-${idx}-set-${setIdx}-p2">
+                                    <button class="quick-score-btn" onclick="quickScoreAdjust(${idx}, ${setIdx}, 2, 1)" title="Zvýšit skóre">+</button>
+                                </div>
+                            ` : `
+                                <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
+                                       value="${set.score1 !== null ? set.score1 : ''}"
+                                       placeholder="0"
+                                       onchange="updateSet(${idx}, ${setIdx}, 1, this.value)"
+                                       id="match-${idx}-set-${setIdx}-p1">
+                                <span style="text-align:center;">:</span>
+                                <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
+                                       value="${set.score2 !== null ? set.score2 : ''}"
+                                       placeholder="0"
+                                       onchange="updateSet(${idx}, ${setIdx}, 2, this.value)"
+                                       id="match-${idx}-set-${setIdx}-p2">
+                            `}
                             ${Utils.validateSet(set.score1, set.score2) ? '' : '<span style="color:var(--danger);font-size:0.875em;">⚠️</span>'}
                         </div>
                     `).join('')}
@@ -283,6 +310,9 @@ const Matches = {
                     ` : ''}
                     ${isPlaying ? `
                         <button class="btn btn-secondary" onclick="finishMatch(${idx})">✅ Ukončit</button>
+                        <button class="btn btn-outline" onclick="toggleQuickScoreMode(${idx})" title="Klávesové zkratky: Q/W pro hráče 1, A/S pro hráče 2">
+                            ⚡ ${quickScoreMode ? 'Normální' : 'Rychlý'} režim
+                        </button>
                     ` : ''}
                 </div>
             </div>

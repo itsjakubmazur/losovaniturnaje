@@ -1,9 +1,108 @@
 // stats.js - Výpočet statistik
 
 const Stats = {
+    // Calculate standings for each group separately
+    calculateGroupStandings() {
+        if (State.current.system !== 'groups' || !State.current.groups.length) {
+            return null;
+        }
+
+        const groupStandings = {};
+
+        // Initialize stats for each group
+        State.current.groups.forEach((group, groupIndex) => {
+            const groupLetter = String.fromCharCode(65 + groupIndex);
+            groupStandings[groupLetter] = {};
+
+            const filteredGroup = Utils.filterParticipantsByDiscipline(group);
+            filteredGroup.forEach(p => {
+                const name = p.name || p;
+                groupStandings[groupLetter][name] = {
+                    player: name,
+                    played: 0,
+                    wins: 0,
+                    draws: 0,
+                    losses: 0,
+                    setsWon: 0,
+                    setsLost: 0,
+                    pointsWon: 0,
+                    pointsLost: 0,
+                    points: 0
+                };
+            });
+        });
+
+        // Process matches for each group
+        State.current.matches.forEach(m => {
+            if (!m.completed || !m.sets || m.isPlayoff || !m.group) return;
+
+            const groupLetter = m.group;
+            const p1Name = Utils.getPlayerDisplayName(m.player1);
+            const p2Name = Utils.getPlayerDisplayName(m.player2);
+
+            if (!groupStandings[groupLetter][p1Name] || !groupStandings[groupLetter][p2Name]) return;
+
+            groupStandings[groupLetter][p1Name].played++;
+            groupStandings[groupLetter][p2Name].played++;
+
+            let p1SetsWon = 0;
+            let p2SetsWon = 0;
+
+            m.sets.forEach(set => {
+                if (set.score1 !== null && set.score2 !== null) {
+                    groupStandings[groupLetter][p1Name].pointsWon += set.score1;
+                    groupStandings[groupLetter][p1Name].pointsLost += set.score2;
+                    groupStandings[groupLetter][p2Name].pointsWon += set.score2;
+                    groupStandings[groupLetter][p2Name].pointsLost += set.score1;
+
+                    if (set.score1 > set.score2) {
+                        p1SetsWon++;
+                        groupStandings[groupLetter][p1Name].setsWon++;
+                        groupStandings[groupLetter][p2Name].setsLost++;
+                    } else if (set.score2 > set.score1) {
+                        p2SetsWon++;
+                        groupStandings[groupLetter][p2Name].setsWon++;
+                        groupStandings[groupLetter][p1Name].setsLost++;
+                    }
+                }
+            });
+
+            if (p1SetsWon > p2SetsWon) {
+                groupStandings[groupLetter][p1Name].wins++;
+                groupStandings[groupLetter][p1Name].points += State.current.pointsForWin;
+                groupStandings[groupLetter][p2Name].losses++;
+            } else if (p2SetsWon > p1SetsWon) {
+                groupStandings[groupLetter][p2Name].wins++;
+                groupStandings[groupLetter][p2Name].points += State.current.pointsForWin;
+                groupStandings[groupLetter][p1Name].losses++;
+            } else {
+                groupStandings[groupLetter][p1Name].draws++;
+                groupStandings[groupLetter][p2Name].draws++;
+                groupStandings[groupLetter][p1Name].points += State.current.pointsForDraw;
+                groupStandings[groupLetter][p2Name].points += State.current.pointsForDraw;
+            }
+        });
+
+        // Sort each group
+        Object.keys(groupStandings).forEach(groupLetter => {
+            groupStandings[groupLetter] = Object.values(groupStandings[groupLetter]).sort((a, b) => {
+                if (b.points !== a.points) return b.points - a.points;
+                if (b.wins !== a.wins) return b.wins - a.wins;
+                const setDiffA = a.setsWon - a.setsLost;
+                const setDiffB = b.setsWon - b.setsLost;
+                if (setDiffB !== setDiffA) return setDiffB - setDiffA;
+                const pointDiffA = a.pointsWon - a.pointsLost;
+                const pointDiffB = b.pointsWon - b.pointsLost;
+                return pointDiffB - pointDiffA;
+            });
+        });
+
+        return groupStandings;
+    },
+
     calculate() {
         const stats = {};
-        
+
         State.current.participants.forEach(p => {
             const name = p.name || p;
             stats[name] = {

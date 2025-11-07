@@ -33,6 +33,11 @@ const State = {
     isShared: false, // Tournament loaded from shared URL
     readOnly: false, // Read-only mode for shared tournaments
 
+    // Undo/Redo functionality
+    undoStack: [],
+    redoStack: [],
+    maxUndoSteps: 50,
+
     load() {
         // First check if there's shared tournament data in URL hash
         const sharedData = Utils.decodeTournamentFromURL();
@@ -91,8 +96,79 @@ const State = {
         }
     },
 
-    save() {
+    save(skipUndo = false) {
+        // Save to undo stack before saving (unless explicitly skipped)
+        if (!skipUndo && !this.readOnly) {
+            this.pushToUndoStack();
+        }
+
         localStorage.setItem('tournamentData', JSON.stringify(this.current));
+    },
+
+    // Push current state to undo stack
+    pushToUndoStack() {
+        // Deep clone current state
+        const snapshot = JSON.parse(JSON.stringify(this.current));
+
+        this.undoStack.push(snapshot);
+
+        // Limit stack size
+        if (this.undoStack.length > this.maxUndoSteps) {
+            this.undoStack.shift();
+        }
+
+        // Clear redo stack when new change is made
+        this.redoStack = [];
+    },
+
+    // Undo last change
+    undo() {
+        if (this.undoStack.length === 0) {
+            Utils.showNotification('Není co vrátit zpět', 'error');
+            return false;
+        }
+
+        // Save current state to redo stack
+        const currentSnapshot = JSON.parse(JSON.stringify(this.current));
+        this.redoStack.push(currentSnapshot);
+
+        // Restore previous state
+        const previousState = this.undoStack.pop();
+        this.current = previousState;
+
+        // Save without adding to undo stack
+        localStorage.setItem('tournamentData', JSON.stringify(this.current));
+
+        Utils.showNotification('Změna vrácena zpět');
+        return true;
+    },
+
+    // Redo last undone change
+    redo() {
+        if (this.redoStack.length === 0) {
+            Utils.showNotification('Není co opakovat', 'error');
+            return false;
+        }
+
+        // Save current state to undo stack
+        const currentSnapshot = JSON.parse(JSON.stringify(this.current));
+        this.undoStack.push(currentSnapshot);
+
+        // Restore next state
+        const nextState = this.redoStack.pop();
+        this.current = nextState;
+
+        // Save without adding to undo stack
+        localStorage.setItem('tournamentData', JSON.stringify(this.current));
+
+        Utils.showNotification('Změna opakována');
+        return true;
+    },
+
+    // Clear undo/redo stacks
+    clearUndoRedo() {
+        this.undoStack = [];
+        this.redoStack = [];
     },
 
     reset() {
