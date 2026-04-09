@@ -43,8 +43,8 @@ const UI = {
             case 'setup': content.innerHTML = banner + this.renderSetup(); break;
             case 'participants': content.innerHTML = banner + this.renderParticipants(); break;
             case 'draw': content.innerHTML = banner + this.renderDraw(); break;
-            case 'matches': content.innerHTML = banner + this.renderMatches(); break;
-            case 'results': content.innerHTML = banner + this.renderResults(); break;
+            case 'matches': content.innerHTML = State.readOnly ? this.renderSpectatorView() : banner + this.renderMatches(); break;
+            case 'results': content.innerHTML = State.readOnly ? this.renderSpectatorView() : banner + this.renderResults(); break;
         }
 
         this.attachEventListeners();
@@ -572,6 +572,241 @@ const UI = {
                         <button class="btn btn-danger" onclick="if(State.reset()) UI.render()">🆕 ${i18n.currentLang === 'cs' ? 'Nový turnaj' : 'New Tournament'}</button>
                     ` : ''}
                 </div>
+            </div>
+        `;
+    },
+
+    // ===== SPECTATOR VIEW =====
+
+    renderSpectatorView() {
+        Stats.calculate();
+
+        const numCourts = State.current.numCourts || 1;
+        const allMatches = State.current.matches;
+        const playingMatches = allMatches.filter(m => m.playing);
+        const pendingMatches = allMatches.filter(m => !m.completed && !m.playing);
+        const upcomingMatches = pendingMatches.slice(0, numCourts);
+        const completed = allMatches.filter(m => m.completed).length;
+        const total = allMatches.length;
+        const progress = total > 0 ? Math.round(completed / total * 100) : 0;
+        const isComplete = completed === total && total > 0;
+
+        const hasPlayoff = !!State.current.playoffBracket;
+        const hasGroups = State.current.system === 'groups' && !hasPlayoff;
+
+        const tournamentDate = State.current.tournamentDate
+            ? new Date(State.current.tournamentDate + 'T00:00:00').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' })
+            : '';
+
+        let standingsContent;
+        if (hasPlayoff) {
+            standingsContent = this.renderSpectatorBracket();
+        } else if (hasGroups) {
+            standingsContent = this.renderSpectatorGroupStandings();
+        } else {
+            standingsContent = this.renderSpectatorStandings();
+        }
+
+        return `
+            <div class="spectator-view">
+                <div class="spectator-header-bar">
+                    <div class="spectator-header-left">
+                        <div class="spectator-tournament-name">${State.current.tournamentName || 'Turnaj'}</div>
+                        <div class="spectator-header-meta">
+                            ${tournamentDate ? `📅 ${tournamentDate} &nbsp;·&nbsp;` : ''}
+                            ${numCourts} ${numCourts === 1 ? 'kurt' : numCourts < 5 ? 'kurty' : 'kurtů'}
+                            &nbsp;·&nbsp; ${completed}/${total} zápasů
+                        </div>
+                    </div>
+                    <div class="spectator-header-right">
+                        ${isComplete ? '<span class="spectator-complete-badge">🏆 Turnaj dokončen</span>' : ''}
+                        <div class="spectator-progress-wrap">
+                            <div class="spectator-progress-bar-wrap">
+                                <div class="spectator-progress-fill" style="width:${progress}%"></div>
+                            </div>
+                            <span class="spectator-progress-pct">${progress}%</span>
+                        </div>
+                        <button class="btn spectator-save-btn"
+                            onclick="if(confirm('Uložit tento turnaj lokálně pro editaci?')){State.isShared=false;State.readOnly=false;State.save();window.history.replaceState(null,'',window.location.pathname);Utils.showNotification('Turnaj uložen');UI.render();}">
+                            💾 Uložit a upravovat
+                        </button>
+                    </div>
+                </div>
+
+                <div class="spectator-dashboard">
+                    <div class="spectator-col">
+                        <div class="spectator-col-title spectator-col-live">
+                            ${playingMatches.length > 0
+                                ? '<span class="live-indicator"><span class="live-dot"></span> LIVE</span>'
+                                : '🎾'}
+                            Probíhají zápasy
+                            <span class="spectator-badge">${playingMatches.length}</span>
+                        </div>
+                        ${playingMatches.length > 0
+                            ? playingMatches.map(m => this.renderSpectatorMatchCard(m, 'live')).join('')
+                            : '<div class="spectator-empty">Momentálně žádný zápas neprobíhá</div>'
+                        }
+                    </div>
+
+                    <div class="spectator-col">
+                        <div class="spectator-col-title spectator-col-next">
+                            ⏭ Připravuje se na kurt
+                            <span class="spectator-badge">${upcomingMatches.length}</span>
+                        </div>
+                        ${upcomingMatches.length > 0
+                            ? upcomingMatches.map((m, i) => this.renderSpectatorMatchCard(m, 'next', i + 1)).join('')
+                            : `<div class="spectator-empty">${isComplete ? 'Všechny zápasy odehrány' : 'Žádné čekající zápasy'}</div>`
+                        }
+                    </div>
+
+                    <div class="spectator-col">
+                        <div class="spectator-col-title spectator-col-standings">
+                            ${hasPlayoff ? '🏆 Playoff pavouk' : hasGroups ? '📊 Tabulky skupin' : '📊 Aktuální tabulka'}
+                            <span class="spectator-badge">${State.current.standings.length}</span>
+                        </div>
+                        ${standingsContent}
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    renderSpectatorMatchCard(match, type, position) {
+        const idx = State.current.matches.indexOf(match);
+        const p1Name = Utils.getPlayerDisplayName(match.player1);
+        const p2Name = Utils.getPlayerDisplayName(match.player2);
+
+        let scoreDisplay = '';
+        if (type === 'live') {
+            const scores = match.sets
+                .filter(s => s.score1 !== null && s.score2 !== null)
+                .map(s => `<span class="sp-set-score">${s.score1}:${s.score2}</span>`);
+            scoreDisplay = scores.length > 0
+                ? `<div class="sp-scores">${scores.join('')}</div>`
+                : '<div class="sp-scores"><span class="sp-set-score">—</span></div>';
+        }
+
+        return `
+            <div class="sp-match-card sp-match-${type}">
+                <div class="sp-match-meta">
+                    <span class="sp-court-badge">Kurt ${match.court}</span>
+                    ${match.group ? `<span class="sp-group-badge" style="color:${UI.getGroupColor(match.group)};border-color:${UI.getGroupColor(match.group)}20;">Sk. ${match.group}</span>` : ''}
+                    ${match.roundName ? `<span class="sp-round-label">${match.roundName}</span>` : ''}
+                    ${type === 'live' && match.startTime
+                        ? `<span class="sp-timer" id="spectator-timer-${idx}">⏱ ${Utils.calculateElapsed(match.startTime)}</span>`
+                        : ''}
+                    ${type === 'next' ? `<span class="sp-next-pos">#${position}</span>` : ''}
+                </div>
+                <div class="sp-match-body">
+                    <div class="sp-player">${p1Name}</div>
+                    ${type === 'live' ? scoreDisplay : '<div class="sp-vs">vs</div>'}
+                    <div class="sp-player">${p2Name}</div>
+                </div>
+            </div>
+        `;
+    },
+
+    renderSpectatorStandings() {
+        const standings = State.current.standings;
+        if (!standings || standings.length === 0) {
+            return '<div class="spectator-empty">Tabulka zatím není k dispozici</div>';
+        }
+        return `
+            <table class="sp-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th class="sp-col-name">Hráč</th>
+                        <th title="Zápasy">Z</th>
+                        <th title="Výhry">V</th>
+                        <th title="Sety">Sety</th>
+                        <th title="Body">B</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${standings.map((s, i) => `
+                        <tr class="${i === 0 ? 'sp-gold' : i === 1 ? 'sp-silver' : i === 2 ? 'sp-bronze' : ''}">
+                            <td class="sp-pos">${i < 3 ? ['🥇','🥈','🥉'][i] : i + 1}</td>
+                            <td class="sp-name">${s.player}</td>
+                            <td>${s.played}</td>
+                            <td class="sp-wins">${s.wins}</td>
+                            <td class="sp-sets">${s.setsWon}:${s.setsLost}</td>
+                            <td class="sp-pts">${s.points}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    },
+
+    renderSpectatorGroupStandings() {
+        const groupStandings = Stats.calculateGroupStandings();
+        if (!groupStandings || Object.keys(groupStandings).length === 0) {
+            return '<div class="spectator-empty">Skupinové tabulky nejsou k dispozici</div>';
+        }
+        return Object.entries(groupStandings).map(([letter, standings]) => {
+            const color = UI.getGroupColor(letter);
+            return `
+                <div class="sp-group-block">
+                    <div class="sp-group-header" style="background:${color};">Skupina ${letter}</div>
+                    <table class="sp-table">
+                        <thead><tr><th>#</th><th class="sp-col-name">Hráč</th><th>Z</th><th>V</th><th>Sety</th><th>B</th></tr></thead>
+                        <tbody>
+                            ${standings.map((s, i) => `
+                                <tr class="${i < 2 ? 'sp-qualify' : ''}">
+                                    <td class="sp-pos">${i + 1}</td>
+                                    <td class="sp-name">${s.player}</td>
+                                    <td>${s.played}</td>
+                                    <td class="sp-wins">${s.wins}</td>
+                                    <td class="sp-sets">${s.setsWon}:${s.setsLost}</td>
+                                    <td class="sp-pts">${s.points}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }).join('');
+    },
+
+    renderSpectatorBracket() {
+        if (!State.current.playoffBracket) {
+            return '<div class="spectator-empty">Playoff pavouk není k dispozici</div>';
+        }
+        const totalRounds = State.current.playoffBracket.totalRounds;
+        const rounds = [];
+        for (let r = 0; r <= State.current.playoffBracket.currentRound; r++) {
+            const roundMatches = State.current.matches.filter(m =>
+                m.knockoutRound === r &&
+                (m.isPlayoff === true || State.current.playoffBracket.isKnockout === true)
+            );
+            if (roundMatches.length > 0) {
+                rounds.push({ round: r, name: Playoff.getRoundName(r, totalRounds), matches: roundMatches });
+            }
+        }
+        if (rounds.length === 0) {
+            return '<div class="spectator-empty">Playoff ještě nezačal</div>';
+        }
+        return `
+            <div class="sp-bracket">
+                ${rounds.map(round => `
+                    <div class="sp-bracket-round">
+                        <div class="sp-bracket-round-name">${round.name}</div>
+                        ${round.matches.map(m => {
+                            const p1 = Utils.getPlayerDisplayName(m.player1);
+                            const p2 = Utils.getPlayerDisplayName(m.player2);
+                            const p1w = m.sets ? m.sets.filter(s => s.score1 !== null && s.score1 > s.score2).length : 0;
+                            const p2w = m.sets ? m.sets.filter(s => s.score2 !== null && s.score2 > s.score1).length : 0;
+                            const winner = m.completed ? (p1w > p2w ? p1 : p2) : null;
+                            return `
+                                <div class="sp-bracket-match ${m.playing ? 'sp-bm-live' : ''} ${m.completed ? 'sp-bm-done' : ''}">
+                                    <div class="sp-bm-player ${winner === p1 ? 'sp-bm-winner' : ''}">${p1}</div>
+                                    <div class="sp-bm-player ${winner === p2 ? 'sp-bm-winner' : ''}">${p2}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `).join('')}
             </div>
         `;
     },
