@@ -49,125 +49,234 @@ const Export = {
     },
 
     toPDF() {
-        // Create a print-friendly view
         const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            Utils.showNotification('Nepodařilo se otevřít okno. Povolte vyskakovací okna.', 'error');
+            return;
+        }
         const doc = printWindow.document;
+        const t = State.current;
 
-        const styles = `
-            <style>
-                @page { margin: 2cm; }
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; line-height: 1.6; }
-                .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #3b82f6; }
-                .header h1 { color: #3b82f6; font-size: 2em; margin-bottom: 10px; }
-                .info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
-                .info-box { background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center; }
-                .info-label { font-size: 0.875em; color: #64748b; }
-                .info-value { font-size: 1.3em; font-weight: bold; color: #3b82f6; }
-                h2 { color: #3b82f6; margin: 30px 0 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-                th { background: #3b82f6; color: white; padding: 12px; text-align: left; font-weight: 600; }
-                td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
-                tr:nth-child(even) { background: #f8fafc; }
-                .position-1 { color: #f59e0b; font-weight: bold; font-size: 1.2em; }
-                .position-2 { color: #64748b; font-weight: bold; }
-                .position-3 { color: #cd7f32; font-weight: bold; }
-                .match-result { display: flex; justify-content: space-between; padding: 10px; border-left: 4px solid #10b981; background: #f0fdf4; margin-bottom: 8px; border-radius: 4px; }
-                .match-result.pending { border-left-color: #f59e0b; background: #fffbeb; }
-                .winner { font-weight: bold; color: #10b981; }
-                .footer { margin-top: 50px; text-align: center; color: #64748b; font-size: 0.9em; border-top: 1px solid #e2e8f0; padding-top: 20px; }
-            </style>
-        `;
+        const disciplineLabel = { singles: 'Dvouhra', doubles: 'Čtyřhra', mixed: 'Smíšené' }[t.disciplineType] || '';
+        const completedCount = t.matches.filter(m => m.completed).length;
+        const totalSets = Utils.calculateTotalSets();
+        const totalPoints = Utils.calculateTotalPoints();
 
-        const tournament = State.current;
-        const info = `
-            <div class="header">
-                <h1>🏸 ${tournament.tournamentName || 'Turnaj'}</h1>
-                <p>${Utils.formatDate(tournament.tournamentDate)}</p>
-            </div>
+        function esc(str) {
+            return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
 
-            <div class="info">
-                <div class="info-box">
-                    <div class="info-label">Systém</div>
-                    <div class="info-value">${Utils.getSystemName()}</div>
-                </div>
-                <div class="info-box">
-                    <div class="info-label">Účastníci</div>
-                    <div class="info-value">${tournament.participants.length}</div>
-                </div>
-                <div class="info-box">
-                    <div class="info-label">Zápasy</div>
-                    <div class="info-value">${tournament.matches.length}</div>
-                </div>
-            </div>
-        `;
+        function setScoresStr(m) {
+            if (!m.sets) return '-';
+            const played = m.sets.filter(s => s.score1 !== null && s.score2 !== null);
+            return played.length ? played.map(s => `${s.score1}:${s.score2}`).join(', ') : '-';
+        }
 
-        // Standings table
-        let standingsHTML = '<h2>📊 Konečné pořadí</h2><table><thead><tr><th>#</th><th>Jméno</th><th>Z</th><th>V</th><th>R</th><th>P</th><th>Sety</th><th>Body v setech</th><th>Body</th></tr></thead><tbody>';
-        tournament.standings.forEach((s, i) => {
-            const posClass = i === 0 ? 'position-1' : i === 1 ? 'position-2' : i === 2 ? 'position-3' : '';
-            standingsHTML += `
-                <tr>
-                    <td class="${posClass}">${i + 1}</td>
-                    <td>${s.player}</td>
-                    <td>${s.played}</td>
-                    <td>${s.wins}</td>
-                    <td>${s.draws}</td>
-                    <td>${s.losses}</td>
-                    <td>${s.setsWon}:${s.setsLost}</td>
-                    <td>${s.pointsWon}:${s.pointsLost}</td>
-                    <td><strong>${s.points}</strong></td>
-                </tr>
-            `;
-        });
-        standingsHTML += '</tbody></table>';
+        function matchWinner(m) {
+            if (!m.completed || !m.sets) return '';
+            const p1Sets = m.sets.filter(s => s.score1 > s.score2).length;
+            const p2Sets = m.sets.filter(s => s.score2 > s.score1).length;
+            if (p1Sets > p2Sets) return Utils.getPlayerDisplayName(m.player1);
+            if (p2Sets > p1Sets) return Utils.getPlayerDisplayName(m.player2);
+            return 'Remíza';
+        }
 
-        // Matches
-        let matchesHTML = '<h2>🏸 Všechny zápasy</h2>';
-        tournament.matches.forEach((m, i) => {
-            const winner = m.winner;
-            const p1Class = winner === 1 ? 'winner' : '';
-            const p2Class = winner === 2 ? 'winner' : '';
-            const status = m.completed ? '' : ' pending';
+        function standingsTable(standings, title, sectionBreak) {
+            if (!standings || !standings.length) return '';
+            const posIcons = ['🥇', '🥈', '🥉'];
+            return `
+                <h2${sectionBreak ? ' class="pb"' : ''}>${esc(title)}</h2>
+                <table>
+                    <thead><tr><th>#</th><th>Jméno</th><th>Z</th><th>V</th><th>R</th><th>P</th><th>Sety</th><th>Body v setech</th><th>Body</th></tr></thead>
+                    <tbody>
+                    ${standings.map((s, i) => `
+                        <tr class="${i < 3 ? 'pos-' + (i + 1) : ''}">
+                            <td>${posIcons[i] || (i + 1) + '.'}</td>
+                            <td>${esc(s.player)}</td>
+                            <td>${s.played}</td>
+                            <td>${s.wins}</td>
+                            <td>${s.draws}</td>
+                            <td>${s.losses}</td>
+                            <td>${s.setsWon}:${s.setsLost}</td>
+                            <td>${s.pointsWon}:${s.pointsLost}</td>
+                            <td><strong>${s.points}</strong></td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+        }
 
-            matchesHTML += `
-                <div class="match-result${status}">
-                    <span class="${p1Class}">${Utils.getPlayerDisplayName(m.player1)}</span>
-                    <strong>${m.sets ? m.sets.map(s => `${s.score1 || 0}:${s.score2 || 0}`).join(' ') : '-'}</strong>
-                    <span class="${p2Class}">${Utils.getPlayerDisplayName(m.player2)}</span>
-                </div>
-            `;
-        });
+        function matchesTable(matches) {
+            if (!matches || !matches.length) return '';
+            return `
+                <table class="mt">
+                    <thead><tr><th>Kurt</th><th>Hráč 1</th><th>Výsledek</th><th>Hráč 2</th></tr></thead>
+                    <tbody>
+                    ${matches.map(m => {
+                        const p1 = Utils.getPlayerDisplayName(m.player1);
+                        const p2 = Utils.getPlayerDisplayName(m.player2);
+                        const winner = matchWinner(m);
+                        const p1win = winner === p1;
+                        const p2win = winner === p2;
+                        return `<tr class="${m.completed ? '' : 'pend'}">
+                            <td>${m.court || '-'}</td>
+                            <td class="${p1win ? 'win' : ''}">${p1win ? '<strong>' + esc(p1) + '</strong>' : esc(p1)}</td>
+                            <td class="score">${setScoresStr(m)}</td>
+                            <td class="${p2win ? 'win' : ''}">${p2win ? '<strong>' + esc(p2) + '</strong>' : esc(p2)}</td>
+                        </tr>`;
+                    }).join('')}
+                    </tbody>
+                </table>`;
+        }
 
-        const footer = `
-            <div class="footer">
-                <p>Generováno aplikací Losovací web • ${new Date().toLocaleDateString('cs-CZ')} ${new Date().toLocaleTimeString('cs-CZ')}</p>
-            </div>
-        `;
+        // ── Build content sections ────────────────────────────────────────
 
-        doc.write(`
-            <!DOCTYPE html>
-            <html lang="cs">
-            <head>
-                <meta charset="UTF-8">
-                <title>${tournament.tournamentName} - Export PDF</title>
-                ${styles}
-            </head>
-            <body>
-                ${info}
-                ${standingsHTML}
-                ${matchesHTML}
-                ${footer}
-                <script>
-                    window.onload = function() {
-                        window.print();
-                        // Close after printing (optional)
-                        setTimeout(() => window.close(), 100);
-                    };
-                </script>
-            </body>
-            </html>
-        `);
+        let content = '';
+
+        // 1. Final / overall standings
+        content += standingsTable(t.standings, '📊 Konečné pořadí', false);
+
+        // 2. Per-group standings (groups system only)
+        if (t.system === 'groups' && t.groups && t.groups.length) {
+            const gs = Stats.calculateGroupStandings();
+            if (gs && Object.keys(gs).length) {
+                let first = true;
+                Object.entries(gs).forEach(([letter, standings]) => {
+                    content += standingsTable(standings, `📊 Skupina ${letter}`, first);
+                    first = false;
+                });
+            }
+        }
+
+        // 3. Playoff bracket organized by round
+        if (t.playoffBracket) {
+            const totalR = t.playoffBracket.totalRounds;
+            const maxR = t.playoffBracket.currentRound;
+            const isKO = t.playoffBracket.isKnockout;
+
+            content += `<h2 class="pb">🏆 ${isKO ? 'Pavouk' : 'Playoff Pavouk'}</h2>`;
+            for (let r = 0; r <= maxR; r++) {
+                const rMatches = t.matches.filter(m =>
+                    m.knockoutRound === r &&
+                    (m.isPlayoff === true || isKO === true)
+                );
+                if (rMatches.length) {
+                    content += `<h3>${esc(Playoff.getRoundName(r, totalR))}</h3>`;
+                    content += matchesTable(rMatches);
+                }
+            }
+        }
+
+        // 4. All matches organized by rounds / groups
+        content += '<h2 class="pb">🏸 Výsledky zápasů</h2>';
+
+        if (t.system === 'groups') {
+            // Group phase: by group letter, then round
+            const groupLetters = [...new Set(
+                t.matches.filter(m => !m.isPlayoff && m.group).map(m => m.group)
+            )].sort();
+            groupLetters.forEach(gl => {
+                content += `<h3>Skupina ${esc(gl)}</h3>`;
+                const gMatches = t.matches.filter(m => m.group === gl && !m.isPlayoff);
+                const rounds = [...new Set(gMatches.map(m => m.round))].sort((a, b) => a - b);
+                rounds.forEach(r => {
+                    content += `<h4>Kolo ${r + 1}</h4>`;
+                    content += matchesTable(gMatches.filter(m => m.round === r));
+                });
+            });
+            // Playoff phase
+            const playoffMs = t.matches.filter(m => m.isPlayoff);
+            if (playoffMs.length) {
+                content += '<h3>Playoff</h3>';
+                const kRounds = [...new Set(playoffMs.map(m => m.knockoutRound))].sort((a, b) => a - b);
+                kRounds.forEach(kr => {
+                    const krMs = playoffMs.filter(m => m.knockoutRound === kr);
+                    content += `<h4>${esc(krMs[0]?.roundName || 'Kolo ' + (kr + 1))}</h4>`;
+                    content += matchesTable(krMs);
+                });
+            }
+        } else if (t.system === 'knockout') {
+            const kRounds = [...new Set(t.matches.map(m => m.knockoutRound))].sort((a, b) => a - b);
+            const totalR = t.playoffBracket ? t.playoffBracket.totalRounds : kRounds.length;
+            kRounds.forEach(kr => {
+                const krMs = t.matches.filter(m => m.knockoutRound === kr);
+                content += `<h3>${esc(Playoff.getRoundName(kr, totalR))}</h3>`;
+                content += matchesTable(krMs);
+            });
+        } else {
+            // Round-robin or Swiss: by round number
+            const rounds = [...new Set(t.matches.map(m => m.round))].sort((a, b) => a - b);
+            rounds.forEach(r => {
+                content += `<h3>Kolo ${r + 1}</h3>`;
+                content += matchesTable(t.matches.filter(m => m.round === r));
+            });
+        }
+
+        // ── Write document ────────────────────────────────────────────────
+
+        doc.write(`<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>${esc(t.tournamentName || 'Turnaj')} – Výsledky</title>
+<style>
+@page { margin: 2cm; size: A4; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 11px; line-height: 1.5; }
+
+.hdr { text-align: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 3px solid #1e40af; }
+.hdr h1 { color: #1e40af; font-size: 20px; margin-bottom: 4px; }
+.hdr .sub { color: #64748b; font-size: 11px; }
+
+.sum { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px; }
+.sb { background: #f8fafc; border: 1px solid #dbeafe; border-radius: 6px; padding: 8px; text-align: center; }
+.sb .lbl { font-size: 9px; color: #64748b; margin-bottom: 2px; }
+.sb .val { font-size: 14px; font-weight: 700; color: #1e40af; }
+
+h2 { color: #1e40af; font-size: 13px; margin: 18px 0 8px; padding-bottom: 5px; border-bottom: 2px solid #bfdbfe; }
+h3 { color: #2563eb; font-size: 11px; margin: 12px 0 5px; font-weight: 700; }
+h4 { color: #64748b; font-size: 10px; margin: 8px 0 3px; font-weight: 600; }
+
+table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+th { background: #1e40af; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; }
+td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+tr:nth-child(even) { background: #f8fafc; }
+
+.pos-1 td:first-child { color: #d97706; font-weight: 700; font-size: 13px; }
+.pos-2 td:first-child { color: #6b7280; font-weight: 700; }
+.pos-3 td:first-child { color: #92400e; font-weight: 700; }
+
+.win { color: #047857; }
+.score { font-family: monospace; font-weight: 700; text-align: center; }
+.pend td { color: #9ca3af; font-style: italic; }
+
+.mt th, .mt td { padding: 4px 7px; font-size: 10px; }
+
+.footer { margin-top: 28px; padding-top: 10px; border-top: 1px solid #e2e8f0; text-align: center; color: #94a3b8; font-size: 9px; }
+
+@media print {
+    .pb { page-break-before: always; }
+    h2, h3, h4 { page-break-after: avoid; }
+    tr { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div class="hdr">
+    <h1>🏸 ${esc(t.tournamentName || 'Turnaj')}</h1>
+    <div class="sub">${Utils.formatDate(t.tournamentDate)} &bull; ${esc(Utils.getSystemName())} &bull; ${esc(disciplineLabel)}</div>
+</div>
+<div class="sum">
+    <div class="sb"><div class="lbl">Účastníci</div><div class="val">${t.participants.length}</div></div>
+    <div class="sb"><div class="lbl">Zápasy</div><div class="val">${completedCount}/${t.matches.length}</div></div>
+    <div class="sb"><div class="lbl">Kurty</div><div class="val">${t.numCourts}</div></div>
+    <div class="sb"><div class="lbl">Sety</div><div class="val">${totalSets}</div></div>
+    <div class="sb"><div class="lbl">Body celkem</div><div class="val">${totalPoints}</div></div>
+</div>
+${content}
+<div class="footer">Generováno aplikací Losovací web &bull; ${new Date().toLocaleDateString('cs-CZ')} ${new Date().toLocaleTimeString('cs-CZ')}</div>
+<script>window.onload = function() { window.print(); };<\/script>
+</body>
+</html>`);
         doc.close();
 
         Utils.showNotification('PDF se generuje...');
