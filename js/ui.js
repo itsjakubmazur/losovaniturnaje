@@ -337,9 +337,18 @@ const UI = {
                     <button class="btn btn-secondary" onclick="performDraw()">
                         🎲 ${State.current.rounds.length > 0 ? (i18n.currentLang === 'cs' ? 'Přelosovat' : 'Redraw') : (i18n.currentLang === 'cs' ? 'Losovat' : 'Draw')}
                     </button>
+                    ${State.current.matches.length > 0 ? `
+                    <button class="btn btn-primary" onclick="goToMatches()">
+                        ⚽ ${i18n.currentLang === 'cs' ? 'Pokračovat na zápasy →' : 'Continue to Matches →'}
+                    </button>
+                    <button class="btn btn-secondary" onclick="if(confirm('${i18n.currentLang === 'cs' ? 'Přegenerování smaže všechna zadaná skóre. Opravdu pokračovat?' : 'Regenerating will erase all entered scores. Continue?'}')) Matches.generate()">
+                        🔄 ${i18n.currentLang === 'cs' ? 'Přegenerovat zápasy' : 'Regenerate Matches'}
+                    </button>
+                    ` : `
                     <button class="btn btn-primary" onclick="Matches.generate()">
                         ⚽ ${i18n.currentLang === 'cs' ? 'Vygenerovat zápasy →' : 'Generate Matches →'}
                     </button>
+                    `}
                     <button class="btn btn-outline" onclick="goToParticipants()">
                         ← ${i18n.t('btn.back')}
                     </button>
@@ -929,7 +938,7 @@ const UI = {
             });
         });
 
-        ['num-courts', 'match-duration', 'break-time', 'num-groups', 'points-win', 'points-draw', 
+        ['num-courts', 'match-duration', 'break-time', 'num-groups', 'points-win', 'points-draw',
          'best-of', 'points-per-set', 'tiebreak-points'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
@@ -939,6 +948,27 @@ const UI = {
                     State.save();
                 });
             }
+        });
+
+        // Klikatelné kroky v liště
+        document.querySelectorAll('.step[data-step]').forEach(stepEl => {
+            stepEl.addEventListener('click', () => {
+                const step = stepEl.dataset.step;
+                if (step === State.current.step) return;
+                switch (step) {
+                    case 'setup': goToSetup(); break;
+                    case 'participants': goToParticipants(); break;
+                    case 'draw': goToDraw(); break;
+                    case 'matches':
+                        if (State.current.matches.length > 0) goToMatches();
+                        else Utils.showNotification('Nejprve vygenerujte zápasy', 'error');
+                        break;
+                    case 'results':
+                        if (State.current.matches.length > 0) goToResults();
+                        else Utils.showNotification('Nejprve vygenerujte zápasy', 'error');
+                        break;
+                }
+            });
         });
     },
 
