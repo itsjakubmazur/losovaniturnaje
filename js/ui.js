@@ -48,6 +48,8 @@ const UI = {
         }
 
         this.attachEventListeners();
+        this.setupSwipeNavigation();
+        updateUndoRedoButtons();
     },
 
     updateSteps() {
@@ -243,13 +245,17 @@ const UI = {
                 <h2>👥 ${i18n.t('step.participants')} ${i18n.currentLang === 'cs' ? 'turnaje' : ''}</h2>
 
                 <div class="button-group">
-                    <button class="btn btn-primary" onclick="openParticipantModal()">
+                    <button class="btn btn-primary" onclick="openParticipantModal()" aria-label="Přidat účastníka">
                         ➕ ${i18n.t('participant.add')}
+                    </button>
+                    <button class="btn btn-outline" onclick="showCSVImportModal()" title="Importovat více účastníků z CSV souboru">
+                        📥 ${i18n.currentLang === 'cs' ? 'Import CSV' : 'Import CSV'}
                     </button>
                     <button class="btn btn-outline" onclick="autoFillParticipants()">
                         🎲 ${i18n.currentLang === 'cs' ? 'Demo účastníci' : 'Demo Participants'}
                     </button>
                 </div>
+                <div class="swipe-hint">← přejetím navigujte mezi kroky →</div>
 
                 ${State.current.participants.length > 0 ? `
                     <div class="participants-grid" style="margin-top: 20px;">
@@ -305,16 +311,25 @@ const UI = {
 
                 ${State.current.groups.length > 0 ? `
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0;">
-                        ${State.current.groups.map((group, i) => `
-                            <div style="background: var(--bg); padding: 20px; border-radius: 12px; border-top: 4px solid var(--primary);">
-                                <h3 style="color: var(--primary); margin-bottom: 15px;">Skupina ${String.fromCharCode(65 + i)}</h3>
-                                ${group.map(p => `
-                                    <div style="padding: 8px; margin: 5px 0; background: var(--card); border-radius: 6px;">
-                                        ${p.name || p}
+                        ${State.current.groups.map((group, i) => {
+                            const letter = String.fromCharCode(65 + i);
+                            const color = UI.getGroupColor(letter);
+                            return `
+                            <div style="background: var(--bg); padding: 0; border-radius: 12px; border-top: 4px solid ${color}; overflow: hidden;">
+                                <div style="background: ${color}; color: white; padding: 10px 15px; font-weight: bold; font-size: 0.95em;">
+                                    🏸 Skupina ${letter} (${group.length} hráčů)
+                                </div>
+                                <div style="padding: 15px;">
+                                ${group.map((p, pi) => `
+                                    <div style="padding: 8px 10px; margin: 5px 0; background: var(--card); border-radius: 6px; display: flex; align-items: center; gap: 8px;">
+                                        <div style="width: 24px; height: 24px; border-radius: 50%; background: ${color}; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75em; font-weight: bold; flex-shrink: 0;">${Utils.getInitials(p.name || p)}</div>
+                                        <span>${p.name || p}${p.partner ? ` & ${p.partner}` : ''}</span>
+                                        ${p.seed ? `<span style="margin-left:auto;font-size:0.75em;color:var(--text-muted);">💪 ${p.seed}</span>` : ''}
                                     </div>
                                 `).join('')}
-                            </div>
-                        `).join('')}
+                                </div>
+                            </div>`;
+                        }).join('')}
                     </div>
                 ` : ''}
 
@@ -381,9 +396,29 @@ const UI = {
                     </div>
                 </div>
 
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${progress}%"></div>
+                <div class="progress-bar-wrapper">
+                    <div class="progress-label">
+                        <span>${i18n.currentLang === 'cs' ? 'Průběh turnaje' : 'Tournament Progress'}</span>
+                        <span>${completed}/${total} zápasů (${Math.round(progress)}%)</span>
+                    </div>
+                    <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(progress)}" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-fill" style="width: ${progress}%"></div>
+                    </div>
                 </div>
+
+                ${(() => {
+                    const conflicts = detectCourtConflicts();
+                    if (conflicts.length === 0) return '';
+                    return `<div class="conflict-warning" role="alert">
+                        <span class="conflict-icon">⚠️</span>
+                        <div>
+                            <strong>Upozornění na konflikt!</strong>
+                            ${conflicts.map(c => `<div style="font-size:0.875em;color:var(--danger);">
+                                Hráč <strong>${c.players.join(', ')}</strong> hraje zároveň v zápasech č. ${c.match1 + 1} a ${c.match2 + 1}
+                            </div>`).join('')}
+                        </div>
+                    </div>`;
+                })()}
 
                 ${this.renderMatchFilters()}
 
@@ -577,10 +612,11 @@ const UI = {
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
                     ${Object.keys(groupStandings).map(groupLetter => {
                         const standings = groupStandings[groupLetter];
+                        const groupColor = UI.getGroupColor(groupLetter);
                         return `
-                            <div style="background: var(--card); border-radius: 12px; overflow: hidden; border: 2px solid var(--border);">
-                                <div style="background: var(--primary); color: white; padding: 12px 15px; font-weight: bold;">
-                                    Skupina ${groupLetter}
+                            <div style="background: var(--card); border-radius: 12px; overflow: hidden; border: 2px solid var(--border); border-top: 4px solid ${groupColor};" class="group-color-${groupLetter}">
+                                <div style="background: ${groupColor}; color: white; padding: 12px 15px; font-weight: bold;" class="group-header-${groupLetter}">
+                                    🏸 Skupina ${groupLetter}
                                 </div>
                                 <div style="overflow-x: auto;">
                                     <table style="width: 100%; margin: 0;">
@@ -700,17 +736,19 @@ const UI = {
     openHistory() {
         const modal = document.getElementById('history-modal');
         const content = document.getElementById('history-content') || modal;
-        
+
         if (State.current.history.length === 0) {
             content.innerHTML = '<p style="text-align:center;padding:40px;color:var(--text-muted);">Žádná historie turnajů</p>';
         } else {
             content.innerHTML = `
                 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:15px;">
                     ${State.current.history.map(t => `
-                        <div style="background:var(--bg);padding:20px;border-radius:12px;border:2px solid var(--border);cursor:pointer;transition:all 0.3s;" 
+                        <div style="background:var(--bg);padding:20px;border-radius:12px;border:2px solid var(--border);cursor:pointer;transition:all 0.3s;"
                              onclick="loadTournamentFromHistory(${t.id})"
                              onmouseover="this.style.borderColor='var(--primary)'"
-                             onmouseout="this.style.borderColor='var(--border)'">
+                             onmouseout="this.style.borderColor='var(--border)'"
+                             role="button" tabindex="0"
+                             aria-label="Načíst turnaj ${t.name}">
                             <div style="font-weight:600;margin-bottom:10px;color:var(--primary);">${t.name}</div>
                             <div style="font-size:0.875em;color:var(--text-muted);">
                                 ${Utils.formatDate(t.date)}<br>
@@ -723,7 +761,53 @@ const UI = {
                 </div>
             `;
         }
-        
+
         modal.classList.add('show');
+    },
+
+    // GROUP COLOR HELPERS
+    getGroupColor(letter) {
+        const colors = { A: '#3b82f6', B: '#10b981', C: '#8b5cf6', D: '#f59e0b', E: '#ef4444', F: '#06b6d4', G: '#ec4899', H: '#84cc16' };
+        return colors[letter] || '#3b82f6';
+    },
+
+    // SETUP SWIPE NAVIGATION
+    setupSwipeNavigation() {
+        const content = document.getElementById('app-content');
+        if (!content) return;
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        content.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        content.addEventListener('touchend', (e) => {
+            const dx = e.changedTouches[0].clientX - touchStartX;
+            const dy = e.changedTouches[0].clientY - touchStartY;
+
+            // Only register horizontal swipes (dx > 60, dy < 50)
+            if (Math.abs(dx) < 60 || Math.abs(dy) > 50) return;
+
+            // Don't swipe if user is interacting with a form element
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+            const steps = ['setup', 'participants', 'draw', 'matches', 'results'];
+            const currentIdx = steps.indexOf(State.current.step);
+
+            if (dx < 0 && currentIdx < steps.length - 1) {
+                // Swipe left → next step
+                const nextStep = steps[currentIdx + 1];
+                if (nextStep === 'draw' && State.current.participants.length < 2) return;
+                State.current.step = nextStep;
+                UI.render();
+            } else if (dx > 0 && currentIdx > 0) {
+                // Swipe right → previous step
+                State.current.step = steps[currentIdx - 1];
+                UI.render();
+            }
+        }, { passive: true });
     }
 };

@@ -517,6 +517,333 @@ function filterMatches() {
     });
 }
 
+// ===== CSV IMPORT =====
+
+function showCSVImportModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.id = 'csv-import-modal';
+    modal.innerHTML = `
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>📥 Hromadný import účastníků (CSV)</h3>
+                <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+            </div>
+            <p style="color:var(--text-muted);margin-bottom:15px;">
+                Importujte více účastníků najednou ze souboru CSV nebo z textu.
+            </p>
+            <div class="alert alert-info" style="margin-bottom:15px;">
+                <strong>Formát:</strong> <code>Jméno,Partner,Klub,Nasazení,Email,Telefon</code>
+                <div class="csv-format-example">Jan Novák,,SK Praha,8,jan@example.com,+420123456789
+Petr Svoboda,,TJ Brno,6
+Alena Malá,Karel Malý,BC Ostrava,5,alena@example.com</div>
+                <small>• Partner vyplňte pouze pro deblové páry • Nasazení 1–10 (nepovinné)</small>
+            </div>
+            <div class="input-group">
+                <label>📂 Nahrát CSV soubor</label>
+                <input type="file" accept=".csv,.txt" onchange="importCSVFile(this.files[0])">
+            </div>
+            <div class="input-group">
+                <label>📝 Nebo vložte text (každý účastník na nový řádek):</label>
+                <textarea id="csv-text-input" placeholder="Jan Novák,,SK Praha,8&#10;Petr Svoboda,,TJ Brno,6" style="min-height:180px;font-family:monospace;font-size:0.9em;"></textarea>
+            </div>
+            <div id="csv-preview" style="display:none;margin-top:15px;"></div>
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="importCSVText()">📥 Importovat</button>
+                <button class="btn btn-outline" onclick="previewCSV()">👁️ Náhled</button>
+                <button class="btn btn-outline" onclick="this.closest('.modal').remove()">Zrušit</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function parseCSVLine(line) {
+    // Handle quoted fields with commas inside
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+            inQuotes = !inQuotes;
+        } else if (ch === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+        } else {
+            current += ch;
+        }
+    }
+    result.push(current.trim());
+    return result;
+}
+
+function parseCSV(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    const participants = [];
+    const errors = [];
+
+    lines.forEach((line, idx) => {
+        if (!line || line.startsWith('#')) return; // skip comments
+        const parts = parseCSVLine(line);
+        const name = parts[0];
+        if (!name) {
+            errors.push(`Řádek ${idx + 1}: chybí jméno`);
+            return;
+        }
+        participants.push({
+            name: name,
+            partner: parts[1] || null,
+            club: parts[2] || '',
+            seed: parts[3] ? Math.min(10, Math.max(1, parseInt(parts[3]) || 5)) : 5,
+            email: parts[4] || '',
+            phone: parts[5] || ''
+        });
+    });
+
+    return { participants, errors };
+}
+
+function previewCSV() {
+    const text = document.getElementById('csv-text-input').value;
+    if (!text.trim()) { Utils.showNotification('Vložte CSV text', 'error'); return; }
+    const { participants, errors } = parseCSV(text);
+    const preview = document.getElementById('csv-preview');
+    preview.style.display = 'block';
+    preview.innerHTML = `
+        <div style="background:var(--bg);border-radius:8px;padding:15px;">
+            <strong>Náhled (${participants.length} účastníků):</strong>
+            ${errors.length ? `<div style="color:var(--danger);font-size:0.875em;margin:8px 0;">${errors.map(e => `⚠️ ${e}`).join('<br>')}</div>` : ''}
+            <div style="max-height:200px;overflow-y:auto;margin-top:10px;">
+                ${participants.map(p => `
+                    <div style="display:flex;align-items:center;gap:10px;padding:6px;border-bottom:1px solid var(--border);">
+                        <div style="width:30px;height:30px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.75em;font-weight:bold;flex-shrink:0;">${Utils.getInitials(p.name)}</div>
+                        <div>
+                            <div style="font-weight:500;">${p.name}${p.partner ? ` & ${p.partner}` : ''}</div>
+                            <div style="font-size:0.8em;color:var(--text-muted);">${p.club || 'Bez klubu'} • Nasazení: ${p.seed}</div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function importCSVText() {
+    const text = document.getElementById('csv-text-input').value;
+    if (!text.trim()) { Utils.showNotification('Vložte CSV text', 'error'); return; }
+    const { participants, errors } = parseCSV(text);
+    if (participants.length === 0) { Utils.showNotification('Nenalezeni žádní platní účastníci', 'error'); return; }
+
+    State.current.participants.push(...participants);
+    State.save();
+    document.getElementById('csv-import-modal').remove();
+    UI.render();
+    Utils.showNotification(`Importováno ${participants.length} účastníků${errors.length ? ` (${errors.length} chyb)` : ''}`);
+}
+
+function importCSVFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const textarea = document.getElementById('csv-text-input');
+        if (textarea) textarea.value = e.target.result;
+        previewCSV();
+    };
+    reader.readAsText(file);
+}
+
+// ===== TOURNAMENT TEMPLATES =====
+
+function showTemplatesModal() {
+    const templates = JSON.parse(localStorage.getItem('tournamentTemplates') || '[]');
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.id = 'templates-modal';
+
+    const templateCards = templates.length > 0
+        ? `<div class="template-grid">
+            ${templates.map(t => `
+                <div class="template-card" onclick="loadTemplate(${t.id})">
+                    <button class="template-delete" onclick="event.stopPropagation();deleteTemplate(${t.id})" title="Smazat šablonu">🗑️</button>
+                    <div class="template-card-title">📋 ${t.name}</div>
+                    <div class="template-card-meta">
+                        🎯 ${Utils.getSystemName(t.system)}<br>
+                        🏸 ${t.disciplineType === 'singles' ? 'Dvouhra' : t.disciplineType === 'doubles' ? 'Čtyřhra' : 'Smíšené'}<br>
+                        🏟️ ${t.numCourts} kurt${t.numCourts > 1 ? 'y' : ''} • Best of ${t.bestOf}<br>
+                        🎯 ${t.pointsPerSet} bodů/set
+                    </div>
+                </div>
+            `).join('')}
+           </div>`
+        : `<div style="text-align:center;padding:30px;color:var(--text-muted);">Žádné uložené šablony. Uložte aktuální konfiguraci!</div>`;
+
+    modal.innerHTML = `
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>📋 Šablony turnajů</h3>
+                <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+            </div>
+            <p style="color:var(--text-muted);margin-bottom:15px;">
+                Uložte aktuální nastavení jako šablonu pro příští turnaj.
+            </p>
+            <div class="button-group" style="margin-bottom:20px;">
+                <button class="btn btn-primary" onclick="saveCurrentAsTemplate()">💾 Uložit aktuální konfiguraci</button>
+            </div>
+            ${templateCards}
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function saveCurrentAsTemplate() {
+    const name = prompt('Název šablony:', State.current.tournamentName || 'Moje šablona');
+    if (!name) return;
+
+    const template = {
+        id: Date.now(),
+        name: name,
+        system: State.current.system,
+        disciplineType: State.current.disciplineType,
+        numGroups: State.current.numGroups,
+        numCourts: State.current.numCourts,
+        matchDuration: State.current.matchDuration,
+        breakTime: State.current.breakTime,
+        pointsForWin: State.current.pointsForWin,
+        pointsForDraw: State.current.pointsForDraw,
+        bestOf: State.current.bestOf,
+        pointsPerSet: State.current.pointsPerSet,
+        tieBreakPoints: State.current.tieBreakPoints
+    };
+
+    const templates = JSON.parse(localStorage.getItem('tournamentTemplates') || '[]');
+    templates.unshift(template);
+    if (templates.length > 20) templates.pop();
+    localStorage.setItem('tournamentTemplates', JSON.stringify(templates));
+
+    const modal = document.getElementById('templates-modal');
+    if (modal) modal.remove();
+    Utils.showNotification(`Šablona "${name}" uložena`);
+}
+
+function loadTemplate(id) {
+    const templates = JSON.parse(localStorage.getItem('tournamentTemplates') || '[]');
+    const template = templates.find(t => t.id === id);
+    if (!template) return;
+
+    // Apply template settings to current state
+    Object.assign(State.current, {
+        system: template.system,
+        disciplineType: template.disciplineType,
+        numGroups: template.numGroups,
+        numCourts: template.numCourts,
+        matchDuration: template.matchDuration,
+        breakTime: template.breakTime,
+        pointsForWin: template.pointsForWin,
+        pointsForDraw: template.pointsForDraw,
+        bestOf: template.bestOf,
+        pointsPerSet: template.pointsPerSet,
+        tieBreakPoints: template.tieBreakPoints
+    });
+
+    State.save();
+    document.getElementById('templates-modal').remove();
+    UI.render();
+    Utils.showNotification(`Šablona "${template.name}" načtena`);
+}
+
+function deleteTemplate(id) {
+    const templates = JSON.parse(localStorage.getItem('tournamentTemplates') || '[]');
+    const idx = templates.findIndex(t => t.id === id);
+    if (idx === -1) return;
+    const name = templates[idx].name;
+    templates.splice(idx, 1);
+    localStorage.setItem('tournamentTemplates', JSON.stringify(templates));
+    const modal = document.getElementById('templates-modal');
+    if (modal) modal.remove();
+    showTemplatesModal();
+    Utils.showNotification(`Šablona "${name}" smazána`);
+}
+
+// ===== COURT CONFLICT DETECTION =====
+
+function detectCourtConflicts() {
+    const playing = State.current.matches.filter(m => m.playing);
+    const conflicts = [];
+
+    for (let i = 0; i < playing.length; i++) {
+        for (let j = i + 1; j < playing.length; j++) {
+            const m1 = playing[i];
+            const m2 = playing[j];
+
+            const players1 = [
+                Utils.getPlayerDisplayName(m1.player1),
+                Utils.getPlayerDisplayName(m1.player2)
+            ];
+            const players2 = [
+                Utils.getPlayerDisplayName(m2.player1),
+                Utils.getPlayerDisplayName(m2.player2)
+            ];
+
+            const overlap = players1.filter(p => players2.includes(p));
+            if (overlap.length > 0) {
+                conflicts.push({
+                    match1: State.current.matches.indexOf(m1),
+                    match2: State.current.matches.indexOf(m2),
+                    players: overlap
+                });
+            }
+        }
+    }
+
+    return conflicts;
+}
+
+// ===== SPECTATOR MODE =====
+
+function openSpectatorMode() {
+    const shareUrl = Utils.encodeTournamentToURL(State.current);
+    if (!shareUrl) {
+        Utils.showNotification('Chyba při generování odkazu', 'error');
+        return;
+    }
+
+    // Add spectator flag
+    const spectatorUrl = shareUrl + '&spectator=1';
+    const qrUrl = Utils.generateQRCode(shareUrl, 300);
+
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>👁️ Diváckový mód – Sdílet live výsledky</h3>
+                <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+            </div>
+            <div style="text-align:center;padding:10px 0 20px;">
+                <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:10px 20px;border-radius:8px;margin-bottom:20px;font-size:0.9em;">
+                    👁️ Diváci vidí výsledky v reálném čase, bez možnosti editace
+                </div>
+                <img src="${qrUrl}" alt="QR kód" style="max-width:250px;border:3px solid var(--border);border-radius:12px;padding:8px;background:white;">
+                <div style="margin-top:15px;padding:12px;background:var(--bg);border-radius:8px;word-break:break-all;font-size:0.8em;color:var(--text-muted);">${shareUrl}</div>
+            </div>
+            <div class="button-group" style="justify-content:center;">
+                <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${shareUrl.replace(/'/g, "\\'")}').then(() => Utils.showNotification('Odkaz zkopírován'))">
+                    📋 Kopírovat odkaz
+                </button>
+                ${navigator.share ? `
+                    <button class="btn btn-secondary" onclick="navigator.share({title:'${State.current.tournamentName || 'Turnaj'}',url:'${shareUrl.replace(/'/g, "\\'")}'})">
+                        📤 Sdílet
+                    </button>` : ''}
+            </div>
+            <div style="margin-top:15px;padding:10px;background:rgba(245,158,11,0.1);border-radius:8px;font-size:0.85em;color:var(--text-muted);">
+                ⚠️ Každá změna výsledků vyžaduje nový QR kód / odkaz
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
 // Start app when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

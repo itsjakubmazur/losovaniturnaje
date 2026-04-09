@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Správa turnajů">
+    <meta name="description" content="Správa badmintonových turnajů – losování, výsledky, statistiky">
     <meta name="theme-color" content="#3b82f6">
     <title>Losovací web</title>
     <link rel="manifest" href="./manifest.json">
@@ -11,36 +11,40 @@
     <link rel="stylesheet" href="./css/styles.css">
 </head>
 <body>
+    <!-- Skip to main content (accessibility) -->
+    <a href="#app-content" class="skip-link">Přeskočit na obsah</a>
+
     <div class="container">
-        <div class="header">
+        <header class="header" role="banner">
             <div class="header-left">
                 <h1>🏸 <span id="tournament-title">Losovací web</span></h1>
-                <p id="tournament-subtitle">Správa turnajů</p>
+                <p id="tournament-subtitle" aria-live="polite">Správa turnajů</p>
             </div>
-            <div class="header-right">
-                <button class="icon-btn" onclick="undoAction()" title="Zpět (Ctrl+Z)" id="undo-btn">↶</button>
-                <button class="icon-btn" onclick="redoAction()" title="Vpřed (Ctrl+Y)" id="redo-btn">↷</button>
-                <button class="icon-btn" onclick="i18n.showLanguageSelector()" title="Jazyk / Language">🌍</button>
-                <button class="icon-btn" onclick="State.showBackupMenu()" title="Záloha dat">☁️</button>
-                <button class="icon-btn" onclick="Utils.showQRCode()" title="QR kód - Sdílet">📱</button>
-                <button class="icon-btn" onclick="Stats.showHistoricalStats()" title="Statistiky napříč turnaji">📊</button>
-                <button class="icon-btn" onclick="openThemeMenu()" title="Motiv">🎨</button>
-                <button class="icon-btn" onclick="toggleDarkMode()" title="Tmavý režim">🌙</button>
-                <button class="icon-btn" onclick="openHistory()" title="Historie">📚</button>
-                <button class="icon-btn" onclick="window.print()" title="Tisk">🖨️</button>
-                <button class="icon-btn" onclick="openExportMenu()" title="Export">📤</button>
-            </div>
-        </div>
+            <nav class="header-right" aria-label="Nástroje">
+                <button class="icon-btn" onclick="undoAction()" title="Zpět (Ctrl+Z)" id="undo-btn" aria-label="Vrátit zpět">↶</button>
+                <button class="icon-btn" onclick="redoAction()" title="Vpřed (Ctrl+Y)" id="redo-btn" aria-label="Zopakovat">↷</button>
+                <button class="icon-btn" onclick="showTemplatesModal()" title="Šablony turnajů" aria-label="Šablony turnajů">📋</button>
+                <button class="icon-btn" onclick="i18n.showLanguageSelector()" title="Jazyk / Language" aria-label="Přepnout jazyk">🌍</button>
+                <button class="icon-btn" onclick="State.showBackupMenu()" title="Záloha dat" aria-label="Záloha dat">☁️</button>
+                <button class="icon-btn" onclick="openSpectatorMode()" title="Diváckový mód – sdílet live výsledky" aria-label="Diváckový mód">👁️</button>
+                <button class="icon-btn" onclick="Stats.showHistoricalStats()" title="Statistiky napříč turnaji" aria-label="Statistiky">📊</button>
+                <button class="icon-btn" onclick="openThemeMenu()" title="Motiv" aria-label="Změnit motiv">🎨</button>
+                <button class="icon-btn" onclick="toggleDarkMode()" title="Tmavý režim" aria-label="Přepnout tmavý režim">🌙</button>
+                <button class="icon-btn" onclick="openHistory()" title="Historie" aria-label="Historie turnajů">📚</button>
+                <button class="icon-btn" onclick="window.print()" title="Tisk" aria-label="Tisk">🖨️</button>
+                <button class="icon-btn" onclick="openExportMenu()" title="Export" aria-label="Export dat">📤</button>
+            </nav>
+        </header>
 
-        <div class="steps" id="steps-container"></div>
-        <div id="app-content"></div>
+        <nav class="steps" id="steps-container" aria-label="Kroky turnaje"></nav>
+        <main id="app-content" role="main" aria-live="polite"></main>
     </div>
 
     <!-- Modals -->
-    <div id="participant-modal" class="modal"></div>
-    <div id="theme-modal" class="modal"></div>
-    <div id="history-modal" class="modal"></div>
-    <div id="export-modal" class="modal"></div>
+    <div id="participant-modal" class="modal" role="dialog" aria-modal="true"></div>
+    <div id="theme-modal" class="modal" role="dialog" aria-modal="true"></div>
+    <div id="history-modal" class="modal" role="dialog" aria-modal="true"></div>
+    <div id="export-modal" class="modal" role="dialog" aria-modal="true"></div>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
@@ -54,5 +58,29 @@
     <script src="./js/stats.js"></script>
     <script src="./js/export.js"></script>
     <script src="./js/app.js"></script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => {
+                        // Check for updates
+                        reg.addEventListener('updatefound', () => {
+                            const newWorker = reg.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New version available
+                                    if (typeof Utils !== 'undefined') {
+                                        Utils.showNotification('🔄 Dostupná nová verze. Obnovte stránku.', 'info');
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch(err => console.warn('SW registration failed:', err));
+            });
+        }
+    </script>
 </body>
 </html>
