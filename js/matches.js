@@ -224,12 +224,17 @@ const Matches = {
         }
 
         // Plná verze pro probíhající/nedokončené zápasy
+        const groupColor = match.group ? UI.getGroupColor(match.group) : null;
         return `
-            <div class="match-card ${isPlaying ? 'playing' : ''}" data-match="${idx}">
-                ${isPlaying ? '<div class="match-badge">▶️ HRAJE SE</div>' : ''}
+            <div class="match-card ${isPlaying ? 'playing' : ''}" data-match="${idx}" id="match-${idx}"
+                 ${groupColor ? `style="border-left-color: ${isPlaying ? 'var(--warning)' : groupColor};"` : ''}>
+                ${isPlaying ? `<div class="match-badge">
+                    <span class="live-indicator"><span class="live-dot"></span> LIVE</span>
+                </div>` : ''}
                 
                 <div class="match-header">
                     <span style="font-weight:bold;color:var(--primary);">Zápas ${idx + 1}</span>
+                    ${match.group ? `<span class="group-badge" style="background:${UI.getGroupColor(match.group)};">Sk. ${match.group}</span>` : ''}
                     <span class="court-badge">Kurt ${match.court}</span>
                     ${match.startTime ? `<span style="color:var(--text-muted);font-size:0.875em;">⏰ ${new Date(match.startTime).toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'})}</span>` : ''}
                 </div>
