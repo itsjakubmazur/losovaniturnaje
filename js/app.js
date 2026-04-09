@@ -165,7 +165,27 @@ function saveParticipant() {
     };
 
     if (State.editingParticipantIndex >= 0) {
+        const oldParticipant = State.current.participants[State.editingParticipantIndex];
         State.current.participants[State.editingParticipantIndex] = participant;
+
+        // Aktualizuj jméno/partnera v existujících zápasech
+        State.current.matches.forEach(match => {
+            if (match.player1 && match.player1.name === oldParticipant.name) {
+                match.player1 = Object.assign({}, match.player1, { name: participant.name, partner: participant.partner });
+            }
+            if (match.player2 && match.player2.name === oldParticipant.name) {
+                match.player2 = Object.assign({}, match.player2, { name: participant.name, partner: participant.partner });
+            }
+        });
+
+        // Aktualizuj jméno v skupinách (draw)
+        State.current.groups.forEach(group => {
+            group.forEach((p, i) => {
+                if (p && p.name === oldParticipant.name) {
+                    group[i] = Object.assign({}, p, { name: participant.name, partner: participant.partner });
+                }
+            });
+        });
     } else {
         State.current.participants.push(participant);
     }
