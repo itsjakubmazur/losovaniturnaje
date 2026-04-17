@@ -311,9 +311,9 @@ const UI = {
                     <div class="participants-grid" style="margin-top: 20px;">
                         ${State.current.participants.map((p, i) => `
                             <div class="participant-card">
-                                <div class="participant-avatar">${Utils.getInitials(p.name)}</div>
+                                <div class="participant-avatar">${Utils.getInitials(p)}</div>
                                 <div style="flex: 1;">
-                                    <div style="font-weight: 600; margin-bottom: 4px;">${p.name}${p.partner ? ` & ${p.partner}` : ''}</div>
+                                    <div style="font-weight: 600; margin-bottom: 4px;">${Utils.getPlayerDisplayName(p)}</div>
                                     <div style="font-size: 0.875em; color: var(--text-muted);">
                                         ${p.club || 'Bez klubu'} ${p.seed ? `• Nasazení: ${p.seed}` : ''}
                                     </div>
@@ -372,8 +372,8 @@ const UI = {
                                 <div style="padding: 15px;">
                                 ${group.map((p, pi) => `
                                     <div style="padding: 8px 10px; margin: 5px 0; background: var(--card); border-radius: 6px; display: flex; align-items: center; gap: 8px;">
-                                        <div style="width: 24px; height: 24px; border-radius: 50%; background: ${color}; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75em; font-weight: bold; flex-shrink: 0;">${Utils.getInitials(p.name || p)}</div>
-                                        <span>${p.name || p}${p.partner ? ` & ${p.partner}` : ''}</span>
+                                        <div style="width: 24px; height: 24px; border-radius: 50%; background: ${color}; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75em; font-weight: bold; flex-shrink: 0;">${Utils.getInitials(p)}</div>
+                                        <span>${Utils.getPlayerDisplayName(p)}</span>
                                         ${p.seed ? `<span style="margin-left:auto;font-size:0.75em;color:var(--text-muted);">💪 ${p.seed}</span>` : ''}
                                     </div>
                                 `).join('')}
@@ -558,6 +558,38 @@ const UI = {
         `;
     },
 
+    // Shared podium renderer used by both admin results and spectator completed view
+    renderPodium() {
+        const standings = State.current.standings;
+        const medals = ['🥇', '🥈', '🥉'];
+        const podiumOrder = [1, 0, 2]; // silver left, gold center, bronze right
+        const podiumLabels = ['1. místo', '2. místo', '3. místo'];
+
+        const podiumItems = podiumOrder
+            .filter(i => standings[i])
+            .map(i => {
+                const s = standings[i];
+                const name = Utils.getPlayerDisplayName(s.playerRef || s.player);
+                return { medal: medals[i], label: podiumLabels[i], name, pos: i };
+            });
+
+        if (podiumItems.length === 0) return '';
+
+        return `
+            <div class="sp-podium-wrap">
+                <div class="sp-podium">
+                    ${podiumItems.map(p => `
+                        <div class="sp-podium-card sp-podium-pos-${p.pos}">
+                            <div class="sp-podium-medal-icon">${p.medal}</div>
+                            <div class="sp-podium-name">${p.name}</div>
+                            <div class="sp-podium-label">${p.label}</div>
+                            <div class="sp-podium-bar sp-podium-bar-${p.pos}"></div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+    },
+
     renderResults() {
         Stats.calculate();
 
@@ -565,9 +597,6 @@ const UI = {
         const total = State.current.matches.length;
         const allCompleted = completed === total;
         const isGroups = State.current.system === 'groups';
-
-        const winner = State.current.standings[0];
-        const winnerName = Utils.getPlayerDisplayName(winner?.playerRef || winner?.player) || '-';
 
         const statsGrid = `
             <div class="stats-grid">
@@ -615,9 +644,8 @@ const UI = {
                 <div class="card">
                     <h2>🏆 ${i18n.t('step.results')}</h2>
                     ${allCompleted ? `
-                        <div class="alert alert-success">
-                            🎉 Turnaj dokončen! Vítěz: <strong>${winnerName}</strong>
-                        </div>
+                        <div class="alert alert-success">🎉 Turnaj dokončen!</div>
+                        ${this.renderPodium()}
                     ` : `
                         <div class="alert alert-warning">
                             ⚠️ Turnaj není dokončen (${completed}/${total} zápasů)
@@ -636,9 +664,8 @@ const UI = {
                 <h2>🏆 ${i18n.t('step.results')}</h2>
 
                 ${allCompleted ? `
-                    <div class="alert alert-success">
-                        🎉 Turnaj dokončen! Vítěz: <strong>${winnerName}</strong>
-                    </div>
+                    <div class="alert alert-success">🎉 Turnaj dokončen!</div>
+                    ${this.renderPodium()}
                 ` : `
                     <div class="alert alert-warning">
                         ⚠️ Turnaj není dokončen (${completed}/${total} zápasů)
@@ -799,33 +826,6 @@ const UI = {
     },
 
     renderSpectatorCompleted(hasPlayoff, hasGroups) {
-        const standings = State.current.standings;
-        const medals = ['🥇', '🥈', '🥉'];
-        const podiumOrder = [1, 0, 2]; // silver left, gold center, bronze right
-        const podiumLabels = ['1. místo', '2. místo', '3. místo'];
-
-        const podiumItems = podiumOrder
-            .filter(i => standings[i])
-            .map(i => {
-                const s = standings[i];
-                const name = Utils.getPlayerDisplayName(s.playerRef || s.player);
-                return { medal: medals[i], label: podiumLabels[i], name, pos: i };
-            });
-
-        const podiumHTML = `
-            <div class="sp-podium-wrap">
-                <div class="sp-podium">
-                    ${podiumItems.map(p => `
-                        <div class="sp-podium-card sp-podium-pos-${p.pos}">
-                            <div class="sp-podium-medal-icon">${p.medal}</div>
-                            <div class="sp-podium-name">${p.name}</div>
-                            <div class="sp-podium-label">${p.label}</div>
-                            <div class="sp-podium-bar sp-podium-bar-${p.pos}"></div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>`;
-
         // Build content panels
         const bracketPanel = hasPlayoff ? `
             <div class="spectator-col sp-result-col">
@@ -859,7 +859,7 @@ const UI = {
             .filter(Boolean).join('');
 
         return `
-            ${podiumHTML}
+            ${this.renderPodium()}
             <div class="sp-result-grid">${contentCols}</div>
         `;
     },
