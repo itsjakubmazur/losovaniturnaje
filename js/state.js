@@ -397,7 +397,7 @@ const State = {
 
     startLiveSession() {
         if (!this.liveSessionId) {
-            this.liveSessionId = Math.random().toString(36).substr(2, 8);
+            this.liveSessionId = Math.random().toString(36).substr(2, 4);
             localStorage.setItem('liveSessionId', this.liveSessionId);
         }
         if (db) {
