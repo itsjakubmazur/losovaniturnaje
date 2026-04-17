@@ -196,48 +196,70 @@ const Playoff = {
             return false;
         }
         
-        // Get winners
+        // Get winners and losers
         const winners = [];
+        const losers = [];
         roundMatches.forEach(match => {
-            const p1Sets = match.sets.filter(s => s.score1 > s.score2).length;
-            const p2Sets = match.sets.filter(s => s.score2 > s.score1).length;
-            
+            const p1Sets = (match.sets || []).filter(s => s.score1 > s.score2).length;
+            const p2Sets = (match.sets || []).filter(s => s.score2 > s.score1).length;
+
             if (p1Sets > p2Sets) {
                 winners.push(match.player1);
+                losers.push(match.player2);
             } else if (p2Sets > p1Sets) {
                 winners.push(match.player2);
+                losers.push(match.player1);
             }
         });
-        
+
         console.log('Winners:', winners);
-        
+
         if (winners.length < 2) {
             console.log('Tournament finished! Winner:', winners[0]);
             return true; // Tournament finished!
         }
-        
+
         // Create next round matches
         const nextRound = round + 1;
         const nextRoundIndex = State.current.rounds.length;
-        
+        const isKnockoutFlag = State.current.playoffBracket.isKnockout === false;
+
         console.log('Creating next round:', nextRound, 'at index:', nextRoundIndex);
-        
+
         State.current.rounds.push(nextRoundIndex);
-        
+
         for (let i = 0; i < winners.length; i += 2) {
             if (winners[i + 1]) {
                 const match = Matches.createMatch(
-                    winners[i], 
-                    winners[i + 1], 
-                    nextRoundIndex, 
+                    winners[i],
+                    winners[i + 1],
+                    nextRoundIndex,
                     ((i / 2) % State.current.numCourts) + 1
                 );
                 match.knockoutRound = nextRound;
                 match.roundName = this.getRoundName(nextRound, State.current.playoffBracket.totalRounds);
-                match.isPlayoff = State.current.playoffBracket.isKnockout === false; // Keep isPlayoff flag consistent
+                match.isPlayoff = isKnockoutFlag;
                 State.current.matches.push(match);
                 console.log('Created match:', match);
             }
+        }
+
+        // Create 3rd place match if enabled, at the semifinal → final transition
+        if (State.current.thirdPlaceMatch &&
+            losers.length === 2 &&
+            nextRound === State.current.playoffBracket.totalRounds - 1) {
+            const thirdMatch = Matches.createMatch(
+                losers[0],
+                losers[1],
+                nextRoundIndex,
+                (1 % State.current.numCourts) + 1
+            );
+            thirdMatch.knockoutRound = nextRound;
+            thirdMatch.roundName = 'O 3. místo';
+            thirdMatch.isPlayoff = isKnockoutFlag;
+            thirdMatch.isThirdPlace = true;
+            State.current.matches.push(thirdMatch);
+            console.log('Created 3rd place match:', thirdMatch);
         }
         
         State.current.playoffBracket.currentRound = nextRound;
@@ -256,13 +278,14 @@ const Playoff = {
         const totalRounds = State.current.playoffBracket.totalRounds;
         const rounds = [];
         
-        // Organize matches by knockout round
+        // Organize matches by knockout round (exclude 3rd place match from regular rounds)
         for (let r = 0; r <= State.current.playoffBracket.currentRound; r++) {
-            const roundMatches = State.current.matches.filter(m => 
-                m.knockoutRound === r && 
+            const roundMatches = State.current.matches.filter(m =>
+                m.knockoutRound === r &&
+                !m.isThirdPlace &&
                 (m.isPlayoff === true || State.current.playoffBracket.isKnockout === true)
             );
-            
+
             if (roundMatches.length > 0) {
                 rounds.push({
                     round: r,
@@ -271,6 +294,8 @@ const Playoff = {
                 });
             }
         }
+
+        const thirdPlaceMatch = State.current.matches.find(m => m.isThirdPlace);
         
         console.log('Rendering bracket with rounds:', rounds);
         
@@ -285,6 +310,12 @@ const Playoff = {
                 <div class="bracket-container">
                     <div class="bracket">
                         ${rounds.map(round => this.renderBracketRound(round)).join('')}
+                        ${thirdPlaceMatch ? `
+                            <div class="bracket-round">
+                                <div class="bracket-round-title">🥉 O 3. místo</div>
+                                ${this.renderBracketMatch(thirdPlaceMatch)}
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             </div>

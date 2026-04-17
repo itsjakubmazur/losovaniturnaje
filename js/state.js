@@ -26,6 +26,7 @@ const State = {
         currentRound: 0,
         swissRound: 0,
         playoffBracket: null,
+        thirdPlaceMatch: false,
         history: []
     },
 
@@ -255,6 +256,7 @@ const State = {
                 currentRound: 0,
                 swissRound: 0,
                 playoffBracket: null,
+                thirdPlaceMatch: false,
                 history: this.current.history
             };
             localStorage.removeItem('tournamentData');

@@ -172,6 +172,22 @@ const UI = {
                         <label>Počet skupin</label>
                         <input type="number" id="num-groups" min="2" max="8" value="${State.current.numGroups}">
                     </div>
+                    <div class="input-group">
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                            <input type="checkbox" id="third-place-match" ${State.current.thirdPlaceMatch ? 'checked' : ''} style="width:auto;margin:0;">
+                            Zápas o 3. místo po semifinále
+                        </label>
+                        <small>Poražení ze semifinále odehrají zápas o bronz</small>
+                    </div>
+                ` : ''}
+                ${State.current.system === 'knockout' ? `
+                    <div class="input-group">
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                            <input type="checkbox" id="third-place-match" ${State.current.thirdPlaceMatch ? 'checked' : ''} style="width:auto;margin:0;">
+                            Zápas o 3. místo po semifinále
+                        </label>
+                        <small>Poražení ze semifinále odehrají zápas o bronz</small>
+                    </div>
                 ` : ''}
 
                 ${State.current.system === 'swiss' ? `
@@ -809,35 +825,46 @@ const UI = {
         for (let r = 0; r <= State.current.playoffBracket.currentRound; r++) {
             const roundMatches = State.current.matches.filter(m =>
                 m.knockoutRound === r &&
+                !m.isThirdPlace &&
                 (m.isPlayoff === true || State.current.playoffBracket.isKnockout === true)
             );
             if (roundMatches.length > 0) {
                 rounds.push({ round: r, name: Playoff.getRoundName(r, totalRounds), matches: roundMatches });
             }
         }
-        if (rounds.length === 0) {
+        const thirdPlaceMatch = State.current.matches.find(m => m.isThirdPlace);
+        if (rounds.length === 0 && !thirdPlaceMatch) {
             return '<div class="spectator-empty">Playoff ještě nezačal</div>';
         }
+
+        const renderSpBracketMatch = (m) => {
+            const p1 = Utils.getPlayerDisplayName(m.player1);
+            const p2 = Utils.getPlayerDisplayName(m.player2);
+            const p1w = m.sets ? m.sets.filter(s => s.score1 !== null && s.score1 > s.score2).length : 0;
+            const p2w = m.sets ? m.sets.filter(s => s.score2 !== null && s.score2 > s.score1).length : 0;
+            const winner = m.completed ? (p1w > p2w ? p1 : p2) : null;
+            return `
+                <div class="sp-bracket-match ${m.playing ? 'sp-bm-live' : ''} ${m.completed ? 'sp-bm-done' : ''}">
+                    <div class="sp-bm-player ${winner === p1 ? 'sp-bm-winner' : ''}">${p1}</div>
+                    <div class="sp-bm-player ${winner === p2 ? 'sp-bm-winner' : ''}">${p2}</div>
+                </div>
+            `;
+        };
+
         return `
             <div class="sp-bracket">
                 ${rounds.map(round => `
                     <div class="sp-bracket-round">
                         <div class="sp-bracket-round-name">${round.name}</div>
-                        ${round.matches.map(m => {
-                            const p1 = Utils.getPlayerDisplayName(m.player1);
-                            const p2 = Utils.getPlayerDisplayName(m.player2);
-                            const p1w = m.sets ? m.sets.filter(s => s.score1 !== null && s.score1 > s.score2).length : 0;
-                            const p2w = m.sets ? m.sets.filter(s => s.score2 !== null && s.score2 > s.score1).length : 0;
-                            const winner = m.completed ? (p1w > p2w ? p1 : p2) : null;
-                            return `
-                                <div class="sp-bracket-match ${m.playing ? 'sp-bm-live' : ''} ${m.completed ? 'sp-bm-done' : ''}">
-                                    <div class="sp-bm-player ${winner === p1 ? 'sp-bm-winner' : ''}">${p1}</div>
-                                    <div class="sp-bm-player ${winner === p2 ? 'sp-bm-winner' : ''}">${p2}</div>
-                                </div>
-                            `;
-                        }).join('')}
+                        ${round.matches.map(renderSpBracketMatch).join('')}
                     </div>
                 `).join('')}
+                ${thirdPlaceMatch ? `
+                    <div class="sp-bracket-round">
+                        <div class="sp-bracket-round-name">🥉 O 3. místo</div>
+                        ${renderSpBracketMatch(thirdPlaceMatch)}
+                    </div>
+                ` : ''}
             </div>
         `;
     },
@@ -959,6 +986,14 @@ const UI = {
                 this.render();
             });
         });
+
+        const thirdPlaceCheckbox = document.getElementById('third-place-match');
+        if (thirdPlaceCheckbox) {
+            thirdPlaceCheckbox.addEventListener('change', e => {
+                State.current.thirdPlaceMatch = e.target.checked;
+                State.save();
+            });
+        }
 
         ['num-courts', 'match-duration', 'break-time', 'num-groups', 'points-win', 'points-draw',
          'best-of', 'points-per-set', 'tiebreak-points'].forEach(id => {
