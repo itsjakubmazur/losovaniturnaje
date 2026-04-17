@@ -33,6 +33,7 @@ const State = {
     isShared: false, // Tournament loaded from shared URL
     readOnly: false, // Read-only mode for shared tournaments
     liveSessionId: null, // Active Firebase live session ID
+    waitingForLiveData: false, // True while spectator waits for Firebase initial data
 
     // Undo/Redo functionality
     undoStack: [],
@@ -46,15 +47,29 @@ const State = {
             const sessionId = hash.slice(6).split('&')[0];
             this.isShared = true;
             this.readOnly = true;
+            this.waitingForLiveData = true;
 
-            if (typeof db !== 'undefined') {
+            if (db) {
                 db.ref(`sessions/${sessionId}`).on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
+                        const isFirst = this.waitingForLiveData;
+                        this.waitingForLiveData = false;
                         this.current = { ...this.current, ...data };
-                        if (typeof UI !== 'undefined') UI.render();
+                        if (typeof UI !== 'undefined') {
+                            UI.render();
+                            if (isFirst) Utils.showNotification(`📡 Připojeno: ${this.current.tournamentName || 'Turnaj'}`);
+                        }
+                    } else if (this.waitingForLiveData) {
+                        this.waitingForLiveData = false;
+                        if (typeof UI !== 'undefined') {
+                            Utils.showNotification('Živá relace nenalezena nebo vypršela', 'error');
+                            UI.render();
+                        }
                     }
                 });
+            } else {
+                this.waitingForLiveData = false;
             }
 
             if (localStorage.getItem('darkMode') === 'true') {
@@ -116,6 +131,17 @@ const State = {
         if (savedSessionId) {
             this.liveSessionId = savedSessionId;
         }
+
+        // Sync history from Firebase cloud backup
+        if (db) {
+            db.ref(`history/${this.getDeviceId()}`).once('value').then(snapshot => {
+                const cloudHistory = snapshot.val();
+                if (cloudHistory && Array.isArray(cloudHistory) && cloudHistory.length > (this.current.history || []).length) {
+                    this.current.history = cloudHistory;
+                    localStorage.setItem('tournamentHistory', JSON.stringify(cloudHistory));
+                }
+            }).catch(console.error);
+        }
     },
 
     save(skipUndo = false) {
@@ -127,9 +153,11 @@ const State = {
         localStorage.setItem('tournamentData', JSON.stringify(this.current));
 
         // Sync to live Firebase session
-        if (this.liveSessionId && !this.readOnly && typeof db !== 'undefined') {
+        if (this.liveSessionId && !this.readOnly && db) {
             const { history: _h, ...dataToSync } = this.current;
-            db.ref(`sessions/${this.liveSessionId}`).set(dataToSync).catch(console.error);
+            db.ref(`sessions/${this.liveSessionId}`).set(dataToSync).catch(err => {
+                console.error('Firebase sync failed:', err);
+            });
         }
     },
 
@@ -254,7 +282,11 @@ const State = {
             this.current.history = this.current.history.slice(0, 50);
         }
         localStorage.setItem('tournamentHistory', JSON.stringify(this.current.history));
-        
+
+        if (db && !this.readOnly) {
+            db.ref(`history/${this.getDeviceId()}`).set(this.current.history).catch(console.error);
+        }
+
         return tournament;
     },
 
@@ -349,14 +381,28 @@ const State = {
         reader.readAsText(file);
     },
 
+    getDeviceId() {
+        let id = localStorage.getItem('deviceId');
+        if (!id) {
+            id = Math.random().toString(36).substr(2, 16);
+            localStorage.setItem('deviceId', id);
+        }
+        return id;
+    },
+
     startLiveSession() {
         if (!this.liveSessionId) {
             this.liveSessionId = Math.random().toString(36).substr(2, 8);
             localStorage.setItem('liveSessionId', this.liveSessionId);
         }
-        if (typeof db !== 'undefined') {
+        if (db) {
             const { history: _h, ...dataToSync } = this.current;
-            db.ref(`sessions/${this.liveSessionId}`).set(dataToSync).catch(console.error);
+            db.ref(`sessions/${this.liveSessionId}`).set(dataToSync).catch(err => {
+                console.error('Firebase write failed:', err);
+                Utils.showNotification('Chyba Firebase – zkontrolujte pravidla databáze', 'error');
+            });
+        } else {
+            Utils.showNotification('Firebase není dostupný', 'error');
         }
         const baseUrl = window.location.origin + window.location.pathname;
         return `${baseUrl}#live=${this.liveSessionId}`;
@@ -364,7 +410,7 @@ const State = {
 
     stopLiveSession() {
         if (this.liveSessionId) {
-            if (typeof db !== 'undefined') {
+            if (db) {
                 db.ref(`sessions/${this.liveSessionId}`).remove().catch(console.error);
             }
             this.liveSessionId = null;

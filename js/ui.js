@@ -12,6 +12,18 @@ const UI = {
 
         const content = document.getElementById('app-content');
 
+        // Loading state while spectator waits for Firebase data
+        if (State.waitingForLiveData) {
+            content.innerHTML = `
+                <div style="text-align:center;padding:60px 20px;color:var(--text-muted);">
+                    <div style="font-size:3em;margin-bottom:15px;">📡</div>
+                    <div style="font-size:1.1em;font-weight:500;margin-bottom:8px;">Připojuji se k živému turnaji...</div>
+                    <div style="font-size:0.875em;">Prosím čekejte...</div>
+                </div>
+            `;
+            return;
+        }
+
         // Add read-only banner if in shared mode
         let banner = '';
         if (State.readOnly) {
