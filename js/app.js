@@ -869,19 +869,33 @@ function openSpectatorMode() {
     const modal = document.createElement('div');
     modal.className = 'modal show';
     modal.innerHTML = `
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>📡 Živé sdílení turnaje</h3>
-                <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+        <div class="modal-content" style="max-width:460px;">
+            <div class="modal-header" style="background:linear-gradient(135deg,#10b981 0%,#0ea5e9 100%);color:white;border-radius:12px 12px 0 0;padding:18px 20px;">
+                <h3 style="color:white;margin:0;display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:1.4em;">📡</span>
+                    Živé sdílení turnaje
+                </h3>
+                <button class="modal-close" style="color:white;opacity:0.8;" onclick="this.closest('.modal').remove()">×</button>
             </div>
-            <div style="text-align:center;padding:10px 0 20px;">
-                <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:10px 20px;border-radius:8px;margin-bottom:20px;font-size:0.9em;">
+            <div style="padding:24px;text-align:center;">
+                <div style="background:linear-gradient(135deg,rgba(16,185,129,0.1),rgba(14,165,233,0.1));border:2px solid #10b981;border-radius:12px;padding:10px 16px;margin-bottom:20px;font-size:0.88em;color:#059669;font-weight:600;">
                     📡 Diváci vidí výsledky v reálném čase – odkaz zůstává stejný po celý turnaj
                 </div>
-                <img src="${qrUrl}" alt="QR kód" style="max-width:250px;border:3px solid var(--border);border-radius:12px;padding:8px;background:white;">
-                <div style="margin-top:15px;padding:12px;background:var(--bg);border-radius:8px;word-break:break-all;font-size:0.8em;color:var(--text-muted);">${liveUrl}</div>
+
+                <div style="position:relative;display:inline-block;margin-bottom:16px;">
+                    <div style="background:linear-gradient(135deg,#10b981,#0ea5e9);padding:4px;border-radius:18px;display:inline-block;box-shadow:0 8px 24px rgba(16,185,129,0.35);">
+                        <div style="background:white;border-radius:14px;padding:12px;display:inline-block;">
+                            <img src="${qrUrl}" alt="QR kód" style="width:220px;height:220px;display:block;border-radius:6px;">
+                        </div>
+                    </div>
+                    <div style="position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#10b981,#0ea5e9);color:white;font-size:0.72em;font-weight:700;padding:3px 12px;border-radius:20px;white-space:nowrap;letter-spacing:0.05em;">
+                        🏸 SKENUJ & SLEDUJ LIVE
+                    </div>
+                </div>
+
+                <div style="margin-top:22px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 14px;word-break:break-all;font-size:0.75em;color:var(--text-muted);text-align:left;">${liveUrl}</div>
             </div>
-            <div class="button-group" style="justify-content:center;">
+            <div class="button-group" style="justify-content:center;padding:0 24px 20px;flex-wrap:wrap;gap:8px;">
                 <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${liveUrl.replace(/'/g, "\\'")}').then(() => Utils.showNotification('Odkaz zkopírován'))">
                     📋 Kopírovat odkaz
                 </button>
