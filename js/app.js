@@ -9,9 +9,14 @@ function init() {
     setInterval(() => {
         State.current.matches.forEach((m, i) => {
             if (m.playing && m.startTime) {
+                const elapsed = Utils.calculateElapsed(m.startTime);
                 const timerEl = document.getElementById(`timer-${i}`);
                 if (timerEl) {
-                    timerEl.textContent = Utils.calculateElapsed(m.startTime);
+                    timerEl.textContent = elapsed;
+                }
+                const spectatorTimerEl = document.getElementById(`spectator-timer-${i}`);
+                if (spectatorTimerEl) {
+                    spectatorTimerEl.textContent = `⏱ ${elapsed}`;
                 }
             }
         });
@@ -822,42 +827,41 @@ function detectCourtConflicts() {
 // ===== SPECTATOR MODE =====
 
 function openSpectatorMode() {
-    const shareUrl = Utils.encodeTournamentToURL(State.current);
-    if (!shareUrl) {
-        Utils.showNotification('Chyba při generování odkazu', 'error');
+    const liveUrl = State.startLiveSession();
+    if (!liveUrl) {
+        Utils.showNotification('Chyba při spuštění živého sdílení', 'error');
         return;
     }
 
-    // Add spectator flag
-    const spectatorUrl = shareUrl + '&spectator=1';
-    const qrUrl = Utils.generateQRCode(shareUrl, 300);
+    const qrUrl = Utils.generateQRCode(liveUrl, 300);
+    const tournamentName = (State.current.tournamentName || 'Turnaj').replace(/'/g, "\\'");
 
     const modal = document.createElement('div');
     modal.className = 'modal show';
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h3>👁️ Diváckový mód – Sdílet live výsledky</h3>
+                <h3>📡 Živé sdílení turnaje</h3>
                 <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
             </div>
             <div style="text-align:center;padding:10px 0 20px;">
-                <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:10px 20px;border-radius:8px;margin-bottom:20px;font-size:0.9em;">
-                    👁️ Diváci vidí výsledky v reálném čase, bez možnosti editace
+                <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:10px 20px;border-radius:8px;margin-bottom:20px;font-size:0.9em;">
+                    📡 Diváci vidí výsledky v reálném čase – odkaz zůstává stejný po celý turnaj
                 </div>
                 <img src="${qrUrl}" alt="QR kód" style="max-width:250px;border:3px solid var(--border);border-radius:12px;padding:8px;background:white;">
-                <div style="margin-top:15px;padding:12px;background:var(--bg);border-radius:8px;word-break:break-all;font-size:0.8em;color:var(--text-muted);">${shareUrl}</div>
+                <div style="margin-top:15px;padding:12px;background:var(--bg);border-radius:8px;word-break:break-all;font-size:0.8em;color:var(--text-muted);">${liveUrl}</div>
             </div>
             <div class="button-group" style="justify-content:center;">
-                <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${shareUrl.replace(/'/g, "\\'")}').then(() => Utils.showNotification('Odkaz zkopírován'))">
+                <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${liveUrl.replace(/'/g, "\\'")}').then(() => Utils.showNotification('Odkaz zkopírován'))">
                     📋 Kopírovat odkaz
                 </button>
                 ${navigator.share ? `
-                    <button class="btn btn-secondary" onclick="navigator.share({title:'${State.current.tournamentName || 'Turnaj'}',url:'${shareUrl.replace(/'/g, "\\'")}'})">
+                    <button class="btn btn-secondary" onclick="navigator.share({title:'${tournamentName}',url:'${liveUrl.replace(/'/g, "\\'")}'})">
                         📤 Sdílet
                     </button>` : ''}
-            </div>
-            <div style="margin-top:15px;padding:10px;background:rgba(245,158,11,0.1);border-radius:8px;font-size:0.85em;color:var(--text-muted);">
-                ⚠️ Každá změna výsledků vyžaduje nový QR kód / odkaz
+                <button class="btn btn-outline" onclick="State.stopLiveSession();this.closest('.modal').remove();">
+                    ⏹ Ukončit sdílení
+                </button>
             </div>
         </div>
     `;
