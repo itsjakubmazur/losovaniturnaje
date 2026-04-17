@@ -188,14 +188,14 @@ const Matches = {
                         <div class="match-players" style="margin-top: 15px;">
                             <div class="player-side ${winner === 1 ? 'winner' : ''}">
                                 <div style="width:35px;height:35px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.875em;font-weight:bold;">
-                                    ${Utils.getInitials(p1Name)}
+                                    ${Utils.getInitials(match.player1)}
                                 </div>
                                 <span>${p1Name}</span>
                             </div>
                             <div style="color:var(--text-muted);font-weight:bold;font-size:1.2em;">VS</div>
                             <div class="player-side ${winner === 2 ? 'winner' : ''}">
                                 <div style="width:35px;height:35px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.875em;font-weight:bold;">
-                                    ${Utils.getInitials(p2Name)}
+                                    ${Utils.getInitials(match.player2)}
                                 </div>
                                 <span>${p2Name}</span>
                             </div>
@@ -247,14 +247,14 @@ const Matches = {
                 <div class="match-players">
                     <div class="player-side">
                         <div style="width:35px;height:35px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.875em;font-weight:bold;">
-                            ${Utils.getInitials(p1Name)}
+                            ${Utils.getInitials(match.player1)}
                         </div>
                         <span>${p1Name}</span>
                     </div>
                     <div style="color:var(--text-muted);font-weight:bold;font-size:1.2em;">VS</div>
                     <div class="player-side">
                         <div style="width:35px;height:35px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.875em;font-weight:bold;">
-                            ${Utils.getInitials(p2Name)}
+                            ${Utils.getInitials(match.player2)}
                         </div>
                         <span>${p2Name}</span>
                     </div>

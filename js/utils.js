@@ -1,20 +1,23 @@
 // utils.js - Pomocné funkce
 
 const Utils = {
-    // Získání iniciálů ze jména
-    getInitials(name) {
-        if (!name) return '?';
+    // Získání iniciálů ze jména (přijímá string nebo player objekt)
+    getInitials(nameOrPlayer) {
+        if (!nameOrPlayer) return '?';
+        const name = (typeof nameOrPlayer === 'object')
+            ? (nameOrPlayer.teamName || nameOrPlayer.name || '?')
+            : nameOrPlayer;
         return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     },
 
-    // Získání celého jména hráče/páru pro zobrazení
+    // Získání celého jména hráče/páru pro zobrazení (vrací HTML)
     getPlayerDisplayName(player) {
         if (!player) return 'TBD';
         const name = player.name || player;
         const partner = player.partner;
         const teamName = player.teamName;
         if (partner && teamName) {
-            return `<span class="team-nickname">${teamName}</span><span class="team-players">${name} & ${partner}</span>`;
+            return `<span class="team-name-block"><span class="team-nickname">${teamName}</span><span class="team-players">${name} & ${partner}</span></span>`;
         }
         return partner ? `${name} & ${partner}` : name;
     },
