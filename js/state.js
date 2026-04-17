@@ -32,6 +32,7 @@ const State = {
     editingParticipantIndex: -1,
     isShared: false, // Tournament loaded from shared URL
     readOnly: false, // Read-only mode for shared tournaments
+    liveSessionId: null, // Active Firebase live session ID
 
     // Undo/Redo functionality
     undoStack: [],
@@ -39,6 +40,34 @@ const State = {
     maxUndoSteps: 50,
 
     load() {
+        // Check for live Firebase session (spectator)
+        const hash = window.location.hash;
+        if (hash && hash.startsWith('#live=')) {
+            const sessionId = hash.slice(6).split('&')[0];
+            this.isShared = true;
+            this.readOnly = true;
+
+            if (typeof db !== 'undefined') {
+                db.ref(`sessions/${sessionId}`).on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        this.current = { ...this.current, ...data };
+                        if (typeof UI !== 'undefined') UI.render();
+                    }
+                });
+            }
+
+            if (localStorage.getItem('darkMode') === 'true') {
+                document.body.classList.add('dark-mode');
+            }
+            const theme = localStorage.getItem('theme');
+            if (theme) {
+                document.body.className = document.body.className.replace(/theme-\w+/g, '');
+                document.body.classList.add(theme);
+            }
+            return;
+        }
+
         // First check if there's shared tournament data in URL hash
         const sharedData = Utils.decodeTournamentFromURL();
         if (sharedData) {
@@ -81,6 +110,12 @@ const State = {
                 this.current.history = JSON.parse(hist);
             }
         }
+
+        // Restore live session ID for organizer
+        const savedSessionId = localStorage.getItem('liveSessionId');
+        if (savedSessionId) {
+            this.liveSessionId = savedSessionId;
+        }
     },
 
     save(skipUndo = false) {
@@ -90,6 +125,12 @@ const State = {
         }
 
         localStorage.setItem('tournamentData', JSON.stringify(this.current));
+
+        // Sync to live Firebase session
+        if (this.liveSessionId && !this.readOnly && typeof db !== 'undefined') {
+            const { history: _h, ...dataToSync } = this.current;
+            db.ref(`sessions/${this.liveSessionId}`).set(dataToSync).catch(console.error);
+        }
     },
 
     // Push current state to undo stack
@@ -306,6 +347,30 @@ const State = {
             }
         };
         reader.readAsText(file);
+    },
+
+    startLiveSession() {
+        if (!this.liveSessionId) {
+            this.liveSessionId = Math.random().toString(36).substr(2, 8);
+            localStorage.setItem('liveSessionId', this.liveSessionId);
+        }
+        if (typeof db !== 'undefined') {
+            const { history: _h, ...dataToSync } = this.current;
+            db.ref(`sessions/${this.liveSessionId}`).set(dataToSync).catch(console.error);
+        }
+        const baseUrl = window.location.origin + window.location.pathname;
+        return `${baseUrl}#live=${this.liveSessionId}`;
+    },
+
+    stopLiveSession() {
+        if (this.liveSessionId) {
+            if (typeof db !== 'undefined') {
+                db.ref(`sessions/${this.liveSessionId}`).remove().catch(console.error);
+            }
+            this.liveSessionId = null;
+            localStorage.removeItem('liveSessionId');
+            Utils.showNotification('Živé sdílení ukončeno');
+        }
     },
 
     // Show backup menu
