@@ -9,9 +9,14 @@ function init() {
     setInterval(() => {
         State.current.matches.forEach((m, i) => {
             if (m.playing && m.startTime) {
+                const elapsed = Utils.calculateElapsed(m.startTime);
                 const timerEl = document.getElementById(`timer-${i}`);
                 if (timerEl) {
-                    timerEl.textContent = Utils.calculateElapsed(m.startTime);
+                    timerEl.textContent = elapsed;
+                }
+                const spectatorTimerEl = document.getElementById(`spectator-timer-${i}`);
+                if (spectatorTimerEl) {
+                    spectatorTimerEl.textContent = `⏱ ${elapsed}`;
                 }
             }
         });

@@ -49,19 +49,6 @@ const State = {
             // Show notification
             setTimeout(() => {
                 Utils.showNotification(`📱 Zobrazuji sdílený turnaj: ${this.current.tournamentName}`);
-
-                // Show option to save locally
-                setTimeout(() => {
-                    if (confirm('Chcete uložit tento turnaj do místního úložiště?')) {
-                        this.isShared = false;
-                        this.readOnly = false;
-                        this.save();
-                        // Remove hash from URL
-                        window.history.replaceState(null, '', window.location.pathname);
-                        Utils.showNotification('Turnaj uložen lokálně');
-                        UI.render();
-                    }
-                }, 1000);
             }, 500);
         } else {
             // Load from localStorage as usual
