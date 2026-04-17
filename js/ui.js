@@ -40,7 +40,16 @@ const UI = {
         }
 
         if (State.readOnly) {
-            content.innerHTML = this.renderSpectatorView();
+            try {
+                content.innerHTML = this.renderSpectatorView();
+            } catch(e) {
+                console.error('Spectator render error:', e);
+                content.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-muted);">
+                    <div style="font-size:2em;margin-bottom:10px;">⚠️</div>
+                    <div>Chyba zobrazení turnaje. Zkuste obnovit stránku.</div>
+                    <div style="font-size:0.8em;margin-top:8px;opacity:0.6;">${e.message}</div>
+                </div>`;
+            }
         } else {
             switch(State.current.step) {
                 case 'setup': content.innerHTML = banner + this.renderSetup(); break;

@@ -124,7 +124,10 @@ const Stats = {
 
             const p1Name = Utils.getPlayerDisplayName(m.player1);
             const p2Name = Utils.getPlayerDisplayName(m.player2);
-            
+
+            if (!stats[p1Name]) stats[p1Name] = { player: p1Name, played: 0, wins: 0, draws: 0, losses: 0, setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0, points: 0 };
+            if (!stats[p2Name]) stats[p2Name] = { player: p2Name, played: 0, wins: 0, draws: 0, losses: 0, setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0, points: 0 };
+
             stats[p1Name].played++;
             stats[p2Name].played++;
             
