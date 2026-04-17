@@ -209,9 +209,8 @@ const Utils = {
         }
     },
 
-    // Generování QR kódu (pomocí Google Charts API)
     generateQRCode(text, size = 200) {
-        return `https://chart.googleapis.com/chart?cht=qr&chl=${encodeURIComponent(text)}&chs=${size}x${size}`;
+        return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
     },
 
     // Sdílení turnaje pomocí QR kódu
