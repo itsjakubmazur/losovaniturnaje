@@ -235,20 +235,26 @@ const Playoff = {
 
         console.log('Qualifiers:', qualifiers);
 
-        // Sort qualifiers: 1st places first (by points), then 2nd places
-        const firstPlaces = qualifiers.filter(q => q.groupPosition === 1).sort((a, b) => b.points - a.points);
-        const secondPlaces = qualifiers.filter(q => q.groupPosition === 2).sort((a, b) => b.points - a.points);
-        
-        // Pairing: 1st from group A vs 2nd from different group
+        // Cross-pairing: best 1st place gets weakest 2nd place from a different group
+        // Ensures no same-group matchup in the first playoff round
+        const firstPlaces = qualifiers.filter(q => q.groupPosition === 1)
+            .sort((a, b) => b.points - a.points || b.wins - a.wins);
+        const secondPlaces = qualifiers.filter(q => q.groupPosition === 2)
+            .sort((a, b) => a.points - b.points || a.wins - b.wins); // weakest first
+
         const paired = [];
-        
-        // Simple pairing: alternate first and second places
-        for (let i = 0; i < firstPlaces.length; i++) {
-            paired.push(firstPlaces[i]);
-            if (secondPlaces[i]) {
-                paired.push(secondPlaces[secondPlaces.length - 1 - i]); // Cross pairing
+        const usedSeconds = [];
+        firstPlaces.forEach(first => {
+            const opp = secondPlaces.find(s => s.group !== first.group && !usedSeconds.includes(s.group));
+            if (opp) {
+                paired.push(first, opp);
+                usedSeconds.push(opp.group);
+            } else {
+                // Fallback: any unused 2nd place (shouldn't happen in normal setup)
+                const fallback = secondPlaces.find(s => !usedSeconds.includes(s.group));
+                if (fallback) { paired.push(first, fallback); usedSeconds.push(fallback.group); }
             }
-        }
+        });
 
         console.log('Paired:', paired);
 
