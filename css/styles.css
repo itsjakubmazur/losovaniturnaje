@@ -1562,3 +1562,90 @@ tr:hover { background: var(--bg); }
     color: var(--text-muted);
     font-weight: 400;
 }
+
+/* ===== SPECTATOR COMPLETED VIEW ===== */
+.sp-podium-wrap {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-radius: 16px;
+    padding: 32px 24px 0;
+    margin-bottom: 20px;
+    overflow: hidden;
+    position: relative;
+}
+.sp-podium-wrap::before {
+    content: '🏆';
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 1.8em;
+    opacity: 0.15;
+    pointer-events: none;
+}
+.sp-podium {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 12px;
+    max-width: 720px;
+    margin: 0 auto;
+}
+.sp-podium-card {
+    flex: 1;
+    max-width: 220px;
+    text-align: center;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.sp-podium-medal-icon {
+    font-size: 2.8em;
+    line-height: 1;
+    margin-bottom: 10px;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
+}
+.sp-podium-pos-0 .sp-podium-medal-icon { font-size: 3.6em; }
+.sp-podium-name {
+    font-weight: 700;
+    font-size: 0.95em;
+    line-height: 1.3;
+    margin-bottom: 6px;
+    word-break: break-word;
+}
+.sp-podium-pos-0 .sp-podium-name { font-size: 1.15em; }
+.sp-podium-label {
+    font-size: 0.72em;
+    opacity: 0.65;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 16px;
+}
+.sp-podium-bar {
+    width: 100%;
+    border-radius: 8px 8px 0 0;
+}
+.sp-podium-bar-0 { height: 72px; background: linear-gradient(180deg, #f59e0b, #d97706); }
+.sp-podium-bar-1 { height: 48px; background: linear-gradient(180deg, #94a3b8, #64748b); }
+.sp-podium-bar-2 { height: 32px; background: linear-gradient(180deg, #cd7c2f, #92400e); }
+
+.sp-result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+.sp-result-col {
+    min-width: 0;
+}
+
+@media (max-width: 600px) {
+    .sp-podium { gap: 8px; }
+    .sp-podium-medal-icon { font-size: 2em; }
+    .sp-podium-pos-0 .sp-podium-medal-icon { font-size: 2.6em; }
+    .sp-podium-name { font-size: 0.82em; }
+    .sp-podium-pos-0 .sp-podium-name { font-size: 0.95em; }
+    .sp-podium-bar-0 { height: 52px; }
+    .sp-podium-bar-1 { height: 36px; }
+    .sp-podium-bar-2 { height: 24px; }
+}

@@ -707,6 +707,37 @@ const UI = {
             ? new Date(State.current.tournamentDate + 'T00:00:00').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' })
             : '';
 
+        const header = `
+            <div class="spectator-header-bar">
+                <div class="spectator-header-left">
+                    <div class="spectator-tournament-name">${State.current.tournamentName || 'Turnaj'}</div>
+                    <div class="spectator-header-meta">
+                        ${tournamentDate ? `📅 ${tournamentDate} &nbsp;·&nbsp;` : ''}
+                        ${numCourts} ${numCourts === 1 ? 'kurt' : numCourts < 5 ? 'kurty' : 'kurtů'}
+                        &nbsp;·&nbsp; ${completed}/${total} zápasů
+                    </div>
+                </div>
+                <div class="spectator-header-right">
+                    ${isComplete ? '<span class="spectator-complete-badge">🏆 Turnaj dokončen</span>' : ''}
+                    <div class="spectator-progress-wrap">
+                        <div class="spectator-progress-bar-wrap">
+                            <div class="spectator-progress-fill" style="width:${progress}%"></div>
+                        </div>
+                        <span class="spectator-progress-pct">${progress}%</span>
+                    </div>
+                    <button class="btn spectator-save-btn"
+                        onclick="if(confirm('Uložit tento turnaj lokálně pro editaci?')){State.isShared=false;State.readOnly=false;State.save();window.history.replaceState(null,'',window.location.pathname);Utils.showNotification('Turnaj uložen');UI.render();}">
+                        💾 Uložit a upravovat
+                    </button>
+                </div>
+            </div>`;
+
+        // ── COMPLETED VIEW ────────────────────────────────────────────────
+        if (isComplete) {
+            return `<div class="spectator-view">${header}${this.renderSpectatorCompleted(hasPlayoff, hasGroups)}</div>`;
+        }
+
+        // ── LIVE VIEW ─────────────────────────────────────────────────────
         let standingsContent = '';
         if (hasPlayoff) {
             standingsContent += State.current.playoffBracket.type === 'positional'
@@ -728,32 +759,8 @@ const UI = {
 
         return `
             <div class="spectator-view">
-                <div class="spectator-header-bar">
-                    <div class="spectator-header-left">
-                        <div class="spectator-tournament-name">${State.current.tournamentName || 'Turnaj'}</div>
-                        <div class="spectator-header-meta">
-                            ${tournamentDate ? `📅 ${tournamentDate} &nbsp;·&nbsp;` : ''}
-                            ${numCourts} ${numCourts === 1 ? 'kurt' : numCourts < 5 ? 'kurty' : 'kurtů'}
-                            &nbsp;·&nbsp; ${completed}/${total} zápasů
-                        </div>
-                    </div>
-                    <div class="spectator-header-right">
-                        ${isComplete ? '<span class="spectator-complete-badge">🏆 Turnaj dokončen</span>' : ''}
-                        <div class="spectator-progress-wrap">
-                            <div class="spectator-progress-bar-wrap">
-                                <div class="spectator-progress-fill" style="width:${progress}%"></div>
-                            </div>
-                            <span class="spectator-progress-pct">${progress}%</span>
-                        </div>
-                        <button class="btn spectator-save-btn"
-                            onclick="if(confirm('Uložit tento turnaj lokálně pro editaci?')){State.isShared=false;State.readOnly=false;State.save();window.history.replaceState(null,'',window.location.pathname);Utils.showNotification('Turnaj uložen');UI.render();}">
-                            💾 Uložit a upravovat
-                        </button>
-                    </div>
-                </div>
-
+                ${header}
                 <div class="spectator-dashboard">
-                    ${!isComplete ? `
                     <div class="spectator-col">
                         <div class="spectator-col-title spectator-col-live">
                             ${playingMatches.length > 0
@@ -767,7 +774,6 @@ const UI = {
                             : '<div class="spectator-empty">Momentálně žádný zápas neprobíhá</div>'
                         }
                     </div>
-
                     <div class="spectator-col">
                         <div class="spectator-col-title spectator-col-next">
                             ⏭ Připravuje se na kurt
@@ -778,8 +784,6 @@ const UI = {
                             : '<div class="spectator-empty">Žádné čekající zápasy</div>'
                         }
                     </div>
-                    ` : ''}
-
                     <div class="spectator-col">
                         <div class="spectator-col-title spectator-col-standings">
                             ${hasPlayoff
@@ -791,6 +795,72 @@ const UI = {
                     </div>
                 </div>
             </div>
+        `;
+    },
+
+    renderSpectatorCompleted(hasPlayoff, hasGroups) {
+        const standings = State.current.standings;
+        const medals = ['🥇', '🥈', '🥉'];
+        const podiumOrder = [1, 0, 2]; // silver left, gold center, bronze right
+        const podiumLabels = ['1. místo', '2. místo', '3. místo'];
+
+        const podiumItems = podiumOrder
+            .filter(i => standings[i])
+            .map(i => {
+                const s = standings[i];
+                const name = Utils.getPlayerDisplayName(s.playerRef || s.player);
+                return { medal: medals[i], label: podiumLabels[i], name, pos: i };
+            });
+
+        const podiumHTML = `
+            <div class="sp-podium-wrap">
+                <div class="sp-podium">
+                    ${podiumItems.map(p => `
+                        <div class="sp-podium-card sp-podium-pos-${p.pos}">
+                            <div class="sp-podium-medal-icon">${p.medal}</div>
+                            <div class="sp-podium-name">${p.name}</div>
+                            <div class="sp-podium-label">${p.label}</div>
+                            <div class="sp-podium-bar sp-podium-bar-${p.pos}"></div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+
+        // Build content panels
+        const bracketPanel = hasPlayoff ? `
+            <div class="spectator-col sp-result-col">
+                <div class="spectator-col-title spectator-col-standings">
+                    🏆 ${State.current.playoffBracket.type === 'positional' ? 'Finálové umístění' : 'Playoff pavouk'}
+                </div>
+                ${State.current.playoffBracket.type === 'positional'
+                    ? this.renderSpectatorPositionalPlayoff()
+                    : this.renderSpectatorBracket()}
+            </div>` : '';
+
+        const groupsPanel = hasGroups ? `
+            <div class="spectator-col sp-result-col">
+                <div class="spectator-col-title spectator-col-standings">📊 Skupinová fáze</div>
+                ${this.renderSpectatorGroupStandings()}
+            </div>` : '';
+
+        const standingsPanel = !hasPlayoff && !hasGroups ? `
+            <div class="spectator-col sp-result-col">
+                <div class="spectator-col-title spectator-col-standings">📊 Konečné pořadí</div>
+                ${this.renderSpectatorStandings()}
+            </div>` : '';
+
+        const mainStandingsPanel = (hasPlayoff || hasGroups) ? `
+            <div class="spectator-col sp-result-col">
+                <div class="spectator-col-title spectator-col-standings">📋 Konečné pořadí</div>
+                ${this.renderSpectatorStandings()}
+            </div>` : '';
+
+        const contentCols = [bracketPanel, groupsPanel, standingsPanel, mainStandingsPanel]
+            .filter(Boolean).join('');
+
+        return `
+            ${podiumHTML}
+            <div class="sp-result-grid">${contentCols}</div>
         `;
     },
 
