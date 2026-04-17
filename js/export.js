@@ -14,8 +14,8 @@ const Export = {
                 match: i + 1,
                 round: m.round + 1,
                 court: m.court,
-                player1: Utils.getPlayerDisplayName(m.player1),
-                player2: Utils.getPlayerDisplayName(m.player2),
+                player1: Utils.getPlayerDisplayNamePlain(m.player1),
+                player2: Utils.getPlayerDisplayNamePlain(m.player2),
                 sets: m.sets,
                 completed: m.completed,
                 notes: State.current.notes[i] || ''
@@ -76,8 +76,8 @@ const Export = {
             if (!m.completed || !m.sets) return '';
             const p1Sets = m.sets.filter(s => s.score1 > s.score2).length;
             const p2Sets = m.sets.filter(s => s.score2 > s.score1).length;
-            if (p1Sets > p2Sets) return Utils.getPlayerDisplayName(m.player1);
-            if (p2Sets > p1Sets) return Utils.getPlayerDisplayName(m.player2);
+            if (p1Sets > p2Sets) return Utils.getPlayerDisplayNamePlain(m.player1);
+            if (p2Sets > p1Sets) return Utils.getPlayerDisplayNamePlain(m.player2);
             return 'Remíza';
         }
 
@@ -92,7 +92,7 @@ const Export = {
                     ${standings.map((s, i) => `
                         <tr class="${i < 3 ? 'pos-' + (i + 1) : ''}">
                             <td>${posIcons[i] || (i + 1) + '.'}</td>
-                            <td>${esc(s.player)}</td>
+                            <td>${esc(Utils.getPlayerDisplayNamePlain(s.playerRef || s.player))}</td>
                             <td>${s.played}</td>
                             <td>${s.wins}</td>
                             <td>${s.draws}</td>
@@ -112,8 +112,8 @@ const Export = {
                     <thead><tr><th>Kurt</th><th>Hráč 1</th><th>Výsledek</th><th>Hráč 2</th></tr></thead>
                     <tbody>
                     ${matches.map(m => {
-                        const p1 = Utils.getPlayerDisplayName(m.player1);
-                        const p2 = Utils.getPlayerDisplayName(m.player2);
+                        const p1 = Utils.getPlayerDisplayNamePlain(m.player1);
+                        const p2 = Utils.getPlayerDisplayNamePlain(m.player2);
                         const winner = matchWinner(m);
                         const p1win = winner === p1;
                         const p2win = winner === p2;

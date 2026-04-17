@@ -116,11 +116,11 @@ const Swiss = {
     },
 
     havePlayed(p1, p2) {
-        const p1Name = Utils.getPlayerDisplayName(p1);
-        const p2Name = Utils.getPlayerDisplayName(p2);
+        const p1Name = p1?.name || p1;
+        const p2Name = p2?.name || p2;
         return State.current.matches.some(m => {
-            const m1Name = Utils.getPlayerDisplayName(m.player1);
-            const m2Name = Utils.getPlayerDisplayName(m.player2);
+            const m1Name = m.player1?.name || m.player1;
+            const m2Name = m.player2?.name || m.player2;
             return (m1Name === p1Name && m2Name === p2Name) ||
                    (m1Name === p2Name && m2Name === p1Name);
         });

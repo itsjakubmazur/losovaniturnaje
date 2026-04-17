@@ -245,8 +245,8 @@ const Stats = {
             tournament.fullData.matches.forEach(m => {
                 if (!m.completed || !m.sets) return;
 
-                const p1Name = Utils.getPlayerDisplayName(m.player1);
-                const p2Name = Utils.getPlayerDisplayName(m.player2);
+                const p1Name = Utils.getPlayerDisplayNamePlain(m.player1);
+                const p2Name = Utils.getPlayerDisplayNamePlain(m.player2);
 
                 // Initialize players
                 if (!playerStats[p1Name]) {

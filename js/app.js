@@ -537,8 +537,8 @@ function filterMatches() {
                 return;
             }
 
-            const p1Name = Utils.getPlayerDisplayName(match.player1).toLowerCase();
-            const p2Name = Utils.getPlayerDisplayName(match.player2).toLowerCase();
+            const p1Name = Utils.getPlayerDisplayNamePlain(match.player1).toLowerCase();
+            const p2Name = Utils.getPlayerDisplayNamePlain(match.player2).toLowerCase();
 
             // Check filter
             let passesFilter = true;
@@ -831,21 +831,18 @@ function detectCourtConflicts() {
             const m1 = playing[i];
             const m2 = playing[j];
 
-            const players1 = [
-                Utils.getPlayerDisplayName(m1.player1),
-                Utils.getPlayerDisplayName(m1.player2)
-            ];
-            const players2 = [
-                Utils.getPlayerDisplayName(m2.player1),
-                Utils.getPlayerDisplayName(m2.player2)
-            ];
+            const playerKey = p => p?.name || p;
+            const players1 = [playerKey(m1.player1), playerKey(m1.player2)];
+            const players2 = [playerKey(m2.player1), playerKey(m2.player2)];
 
-            const overlap = players1.filter(p => players2.includes(p));
-            if (overlap.length > 0) {
+            const overlapKeys = players1.filter(p => players2.includes(p));
+            if (overlapKeys.length > 0) {
                 conflicts.push({
                     match1: State.current.matches.indexOf(m1),
                     match2: State.current.matches.indexOf(m2),
-                    players: overlap
+                    players: overlapKeys.map(k => Utils.getPlayerDisplayNamePlain(
+                        State.current.participants.find(p => p.name === k) || k
+                    ))
                 });
             }
         }
