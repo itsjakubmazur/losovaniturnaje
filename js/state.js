@@ -33,7 +33,6 @@ const State = {
     isShared: false, // Tournament loaded from shared URL
     readOnly: false, // Read-only mode for shared tournaments
     liveSessionId: null, // Active Firebase live session ID
-    waitingForLiveData: false, // True while spectator waits for Firebase initial data
 
     // Undo/Redo functionality
     undoStack: [],
@@ -47,29 +46,31 @@ const State = {
             const sessionId = hash.slice(6).split('&')[0];
             this.isShared = true;
             this.readOnly = true;
-            this.waitingForLiveData = true;
 
             if (db) {
-                db.ref(`sessions/${sessionId}`).on('value', (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        const isFirst = this.waitingForLiveData;
-                        this.waitingForLiveData = false;
-                        this.current = { ...this.current, ...data };
-                        if (typeof UI !== 'undefined') {
-                            UI.render();
-                            if (isFirst) Utils.showNotification(`📡 Připojeno: ${this.current.tournamentName || 'Turnaj'}`);
+                let firstLoad = true;
+                db.ref(`sessions/${sessionId}`).on(
+                    'value',
+                    (snapshot) => {
+                        const data = snapshot.val();
+                        if (data) {
+                            this.current = { ...this.current, ...data };
+                            if (typeof UI !== 'undefined') {
+                                UI.render();
+                                if (firstLoad) {
+                                    firstLoad = false;
+                                    Utils.showNotification(`📡 Připojeno: ${this.current.tournamentName || 'Turnaj'}`);
+                                }
+                            }
                         }
-                    } else if (this.waitingForLiveData) {
-                        this.waitingForLiveData = false;
+                    },
+                    (error) => {
+                        console.error('Firebase read error:', error);
                         if (typeof UI !== 'undefined') {
-                            Utils.showNotification('Živá relace nenalezena nebo vypršela', 'error');
-                            UI.render();
+                            Utils.showNotification(`Chyba Firebase (${error.code}) – zkontrolujte pravidla databáze`, 'error');
                         }
                     }
-                });
-            } else {
-                this.waitingForLiveData = false;
+                );
             }
 
             if (localStorage.getItem('darkMode') === 'true') {

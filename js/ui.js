@@ -12,18 +12,6 @@ const UI = {
 
         const content = document.getElementById('app-content');
 
-        // Loading state while spectator waits for Firebase data
-        if (State.waitingForLiveData) {
-            content.innerHTML = `
-                <div style="text-align:center;padding:60px 20px;color:var(--text-muted);">
-                    <div style="font-size:3em;margin-bottom:15px;">📡</div>
-                    <div style="font-size:1.1em;font-weight:500;margin-bottom:8px;">Připojuji se k živému turnaji...</div>
-                    <div style="font-size:0.875em;">Prosím čekejte...</div>
-                </div>
-            `;
-            return;
-        }
-
         // Add read-only banner if in shared mode
         let banner = '';
         if (State.readOnly) {
@@ -51,12 +39,16 @@ const UI = {
             `;
         }
 
-        switch(State.current.step) {
-            case 'setup': content.innerHTML = banner + this.renderSetup(); break;
-            case 'participants': content.innerHTML = banner + this.renderParticipants(); break;
-            case 'draw': content.innerHTML = banner + this.renderDraw(); break;
-            case 'matches': content.innerHTML = State.readOnly ? this.renderSpectatorView() : banner + this.renderMatches(); break;
-            case 'results': content.innerHTML = State.readOnly ? this.renderSpectatorView() : banner + this.renderResults(); break;
+        if (State.readOnly) {
+            content.innerHTML = this.renderSpectatorView();
+        } else {
+            switch(State.current.step) {
+                case 'setup': content.innerHTML = banner + this.renderSetup(); break;
+                case 'participants': content.innerHTML = banner + this.renderParticipants(); break;
+                case 'draw': content.innerHTML = banner + this.renderDraw(); break;
+                case 'matches': content.innerHTML = banner + this.renderMatches(); break;
+                case 'results': content.innerHTML = banner + this.renderResults(); break;
+            }
         }
 
         this.attachEventListeners();
@@ -600,6 +592,15 @@ const UI = {
     // ===== SPECTATOR VIEW =====
 
     renderSpectatorView() {
+        if (!State.current.tournamentName && !State.current.matches.length) {
+            return `
+                <div style="text-align:center;padding:60px 20px;color:var(--text-muted);">
+                    <div style="font-size:3em;margin-bottom:15px;">📡</div>
+                    <div style="font-size:1.1em;font-weight:500;margin-bottom:8px;">Připojuji se k živému turnaji...</div>
+                    <div style="font-size:0.875em;">Prosím čekejte...</div>
+                </div>
+            `;
+        }
         Stats.calculate();
 
         const numCourts = State.current.numCourts || 1;
