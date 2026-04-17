@@ -753,6 +753,7 @@ const UI = {
                 </div>
 
                 <div class="spectator-dashboard">
+                    ${!isComplete ? `
                     <div class="spectator-col">
                         <div class="spectator-col-title spectator-col-live">
                             ${playingMatches.length > 0
@@ -774,9 +775,10 @@ const UI = {
                         </div>
                         ${upcomingMatches.length > 0
                             ? upcomingMatches.map((m, i) => this.renderSpectatorMatchCard(m, 'next', i + 1)).join('')
-                            : `<div class="spectator-empty">${isComplete ? 'Všechny zápasy odehrány' : 'Žádné čekající zápasy'}</div>`
+                            : '<div class="spectator-empty">Žádné čekající zápasy</div>'
                         }
                     </div>
+                    ` : ''}
 
                     <div class="spectator-col">
                         <div class="spectator-col-title spectator-col-standings">
