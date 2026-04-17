@@ -66,6 +66,10 @@ const UI = {
     },
 
     updateSteps() {
+        if (State.readOnly) {
+            document.getElementById('steps-container').innerHTML = '';
+            return;
+        }
         const stepsHTML = `
             <div class="step ${State.current.step === 'setup' ? 'active' : State.current.participants.length > 0 ? 'completed' : ''}" data-step="setup">
                 <div class="step-circle">1</div>
@@ -660,20 +664,28 @@ const UI = {
         const isComplete = completed === total && total > 0;
 
         const hasPlayoff = !!State.current.playoffBracket;
-        const hasGroups = State.current.system === 'groups' && !hasPlayoff;
+        const hasGroups = State.current.system === 'groups';
 
         const tournamentDate = State.current.tournamentDate
             ? new Date(State.current.tournamentDate + 'T00:00:00').toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' })
             : '';
 
-        let standingsContent;
+        let standingsContent = '';
         if (hasPlayoff) {
-            standingsContent = State.current.playoffBracket.type === 'positional'
+            standingsContent += State.current.playoffBracket.type === 'positional'
                 ? this.renderSpectatorPositionalPlayoff()
                 : this.renderSpectatorBracket();
-        } else if (hasGroups) {
-            standingsContent = this.renderSpectatorGroupStandings();
-        } else {
+        }
+        if (hasGroups) {
+            standingsContent += `
+                <div style="margin-top:${hasPlayoff ? '16px' : '0'};">
+                    <div class="spectator-col-title spectator-col-standings" style="margin-bottom:8px;">
+                        📊 Skupinová fáze
+                    </div>
+                    ${this.renderSpectatorGroupStandings()}
+                </div>`;
+        }
+        if (!hasPlayoff && !hasGroups) {
             standingsContent = this.renderSpectatorStandings();
         }
 
@@ -731,7 +743,9 @@ const UI = {
 
                     <div class="spectator-col">
                         <div class="spectator-col-title spectator-col-standings">
-                            ${hasPlayoff ? '🏆 Playoff pavouk' : hasGroups ? '📊 Tabulky skupin' : '📊 Aktuální tabulka'}
+                            ${hasPlayoff
+                                ? (hasGroups ? '🏆 Playoff &amp; skupiny' : '🏆 Playoff')
+                                : hasGroups ? '📊 Tabulky skupin' : '📊 Aktuální tabulka'}
                             <span class="spectator-badge">${State.current.standings.length}</span>
                         </div>
                         ${standingsContent}
