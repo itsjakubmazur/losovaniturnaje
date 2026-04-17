@@ -1107,7 +1107,9 @@ const UI = {
 
     togglePartnerField() {
         const type = document.getElementById('modal-type').value;
-        document.getElementById('partner-group').style.display = type === 'double' ? 'block' : 'none';
+        const show = type === 'double' ? 'block' : 'none';
+        document.getElementById('partner-group').style.display = show;
+        document.getElementById('teamname-group').style.display = show;
     },
 
     closeModal(id) {
