@@ -709,8 +709,8 @@ const UI = {
 
         let scoreDisplay = '';
         if (type === 'live') {
-            const scores = match.sets
-                .filter(s => s.score1 !== null && s.score2 !== null)
+            const scores = (match.sets || [])
+                .filter(s => s && s.score1 !== null && s.score2 !== null)
                 .map(s => `<span class="sp-set-score">${s.score1}:${s.score2}</span>`);
             scoreDisplay = scores.length > 0
                 ? `<div class="sp-scores">${scores.join('')}</div>`
