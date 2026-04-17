@@ -85,18 +85,11 @@ const Stats = {
             }
         });
 
-        // Sort each group
+        // Sort each group with full tiebreaker chain
         Object.keys(groupStandings).forEach(groupLetter => {
-            groupStandings[groupLetter] = Object.values(groupStandings[groupLetter]).sort((a, b) => {
-                if (b.points !== a.points) return b.points - a.points;
-                if (b.wins !== a.wins) return b.wins - a.wins;
-                const setDiffA = a.setsWon - a.setsLost;
-                const setDiffB = b.setsWon - b.setsLost;
-                if (setDiffB !== setDiffA) return setDiffB - setDiffA;
-                const pointDiffA = a.pointsWon - a.pointsLost;
-                const pointDiffB = b.pointsWon - b.pointsLost;
-                return pointDiffB - pointDiffA;
-            });
+            const groupMatches = State.current.matches.filter(m => m.group === groupLetter && !m.isPlayoff);
+            const basic = Object.values(groupStandings[groupLetter]).sort((a, b) => b.points - a.points);
+            groupStandings[groupLetter] = this.applyTiebreakers(basic, groupMatches);
         });
 
         return groupStandings;
@@ -136,11 +129,8 @@ const Stats = {
                 else if (p2s > p1s) { stats[p2].wins++; stats[p2].points += State.current.pointsForWin; stats[p1].losses++; }
                 else { stats[p1].draws++; stats[p2].draws++; stats[p1].points += State.current.pointsForDraw; stats[p2].points += State.current.pointsForDraw; }
             });
-            const sorted = Object.values(stats).sort((a, b) => {
-                if (b.points !== a.points) return b.points - a.points;
-                if (b.wins !== a.wins) return b.wins - a.wins;
-                return (b.setsWon - b.setsLost) - (a.setsWon - a.setsLost);
-            });
+            const basic = Object.values(stats).sort((a, b) => b.points - a.points);
+            const sorted = this.applyTiebreakers(basic, matches);
             sorted.forEach(p => finalStandings.push(p));
         });
         State.current.standings = finalStandings;
@@ -223,16 +213,9 @@ const Stats = {
             }
         });
         
-        const sorted = Object.values(stats).sort((a, b) => {
-            if (b.points !== a.points) return b.points - a.points;
-            if (b.wins !== a.wins) return b.wins - a.wins;
-            const setDiffA = a.setsWon - a.setsLost;
-            const setDiffB = b.setsWon - b.setsLost;
-            if (setDiffB !== setDiffA) return setDiffB - setDiffA;
-            const pointDiffA = a.pointsWon - a.pointsLost;
-            const pointDiffB = b.pointsWon - b.pointsLost;
-            return pointDiffB - pointDiffA;
-        });
+        const basicSorted = Object.values(stats).sort((a, b) => b.points - a.points);
+        const regularMatches = State.current.matches.filter(m => !m.isPlayoff);
+        const sorted = this.applyTiebreakers(basicSorted, regularMatches);
 
         // For knockout brackets, reorder by playoff result (final winner = 1st, etc.)
         if (State.current.playoffBracket && State.current.playoffBracket.type !== 'positional') {
@@ -240,6 +223,87 @@ const Stats = {
         } else {
             State.current.standings = sorted;
         }
+    },
+
+    // For a group of players tied on overall points: resolve via head-to-head mini-table,
+    // then fall back to overall set diff and overall point diff for any remaining sub-ties.
+    _resolveTiedGroup(group, matches) {
+        if (group.length <= 1) return group;
+
+        const names = new Set(group.map(s => s.player));
+        const h2h = {};
+        group.forEach(s => {
+            h2h[s.player] = { points: 0, wins: 0, setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0 };
+        });
+
+        matches.forEach(m => {
+            if (!m.completed || !m.sets) return;
+            const p1 = m.player1?.name || m.player1;
+            const p2 = m.player2?.name || m.player2;
+            if (!names.has(p1) || !names.has(p2)) return;
+            let p1s = 0, p2s = 0;
+            m.sets.forEach(s => {
+                if (s.score1 !== null && s.score2 !== null) {
+                    h2h[p1].pointsWon += s.score1; h2h[p1].pointsLost += s.score2;
+                    h2h[p2].pointsWon += s.score2; h2h[p2].pointsLost += s.score1;
+                    if (s.score1 > s.score2) { p1s++; h2h[p1].setsWon++; h2h[p2].setsLost++; }
+                    else if (s.score2 > s.score1) { p2s++; h2h[p2].setsWon++; h2h[p1].setsLost++; }
+                }
+            });
+            if (p1s > p2s) { h2h[p1].wins++; h2h[p1].points += State.current.pointsForWin; }
+            else if (p2s > p1s) { h2h[p2].wins++; h2h[p2].points += State.current.pointsForWin; }
+            else { h2h[p1].points += State.current.pointsForDraw; h2h[p2].points += State.current.pointsForDraw; }
+        });
+
+        const sorted = [...group].sort((a, b) => {
+            const ha = h2h[a.player], hb = h2h[b.player];
+            if (hb.points !== ha.points) return hb.points - ha.points;
+            if (hb.wins !== ha.wins) return hb.wins - ha.wins;
+            const sdA = ha.setsWon - ha.setsLost, sdB = hb.setsWon - hb.setsLost;
+            if (sdB !== sdA) return sdB - sdA;
+            return (hb.pointsWon - hb.pointsLost) - (ha.pointsWon - ha.pointsLost);
+        });
+
+        // Find sub-groups still tied on all h2h criteria → fall back to overall stats
+        const result = [];
+        let i = 0;
+        while (i < sorted.length) {
+            let j = i + 1;
+            const ha = h2h[sorted[i].player];
+            while (j < sorted.length) {
+                const hb = h2h[sorted[j].player];
+                if (hb.points !== ha.points || hb.wins !== ha.wins ||
+                    (hb.setsWon - hb.setsLost) !== (ha.setsWon - ha.setsLost) ||
+                    (hb.pointsWon - hb.pointsLost) !== (ha.pointsWon - ha.pointsLost)) break;
+                j++;
+            }
+            const sub = sorted.slice(i, j);
+            if (sub.length > 1) {
+                sub.sort((a, b) => {
+                    const sdA = a.setsWon - a.setsLost, sdB = b.setsWon - b.setsLost;
+                    if (sdB !== sdA) return sdB - sdA;
+                    return (b.pointsWon - b.pointsLost) - (a.pointsWon - a.pointsLost);
+                });
+            }
+            result.push(...sub);
+            i = j;
+        }
+        return result;
+    },
+
+    // Apply full tiebreaker chain to a points-sorted array.
+    // For each group tied on points: head-to-head → overall set diff → overall point diff.
+    applyTiebreakers(sorted, matches) {
+        const result = [];
+        let i = 0;
+        while (i < sorted.length) {
+            let j = i + 1;
+            while (j < sorted.length && sorted[j].points === sorted[i].points) j++;
+            const group = sorted.slice(i, j);
+            result.push(...(group.length > 1 ? this._resolveTiedGroup(group, matches) : group));
+            i = j;
+        }
+        return result;
     },
 
     // Reorder standings so knockout bracket results determine positions 1-4
