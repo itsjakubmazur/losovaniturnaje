@@ -571,7 +571,7 @@ const UI = {
                 
                 ${allCompleted ? `
                     <div class="alert alert-success">
-                        🎉 Turnaj dokončen! Vítěz: <strong>${State.current.standings[0]?.player || '-'}</strong>
+                        🎉 Turnaj dokončen! Vítěz: <strong>${Utils.getPlayerDisplayName(State.current.standings[0]?.playerRef || State.current.standings[0]?.player) || '-'}</strong>
                     </div>
                 ` : `
                     <div class="alert alert-warning">
@@ -613,7 +613,7 @@ const UI = {
                         ${State.current.standings.map((s, i) => `
                             <tr>
                                 <td>${i < 3 ? `<span class="position-badge position-${i + 1}">${i + 1}</span>` : i + 1}</td>
-                                <td><strong>${s.player}</strong></td>
+                                <td><strong>${Utils.getPlayerDisplayName(s.playerRef || s.player)}</strong></td>
                                 <td>${s.played}</td>
                                 <td>${s.wins}</td>
                                 <td>${s.draws}</td>
@@ -811,7 +811,7 @@ const UI = {
                     ${standings.map((s, i) => `
                         <tr class="${i === 0 ? 'sp-gold' : i === 1 ? 'sp-silver' : i === 2 ? 'sp-bronze' : ''}">
                             <td class="sp-pos">${i < 3 ? ['🥇','🥈','🥉'][i] : i + 1}</td>
-                            <td class="sp-name">${s.player}</td>
+                            <td class="sp-name">${Utils.getPlayerDisplayName(s.playerRef || s.player)}</td>
                             <td>${s.played}</td>
                             <td class="sp-wins">${s.wins}</td>
                             <td class="sp-sets">${s.setsWon}:${s.setsLost}</td>
@@ -839,7 +839,7 @@ const UI = {
                             ${standings.map((s, i) => `
                                 <tr class="${i < 2 ? 'sp-qualify' : ''}">
                                     <td class="sp-pos">${i + 1}</td>
-                                    <td class="sp-name">${s.player}</td>
+                                    <td class="sp-name">${Utils.getPlayerDisplayName(s.playerRef || s.player)}</td>
                                     <td>${s.played}</td>
                                     <td class="sp-wins">${s.wins}</td>
                                     <td class="sp-sets">${s.setsWon}:${s.setsLost}</td>
@@ -998,7 +998,7 @@ const UI = {
                                                     <td style="padding: 10px; text-align: center;">
                                                         ${i < 2 ? `<span style="display:inline-block;width:24px;height:24px;border-radius:50%;background:var(--secondary);color:white;line-height:24px;font-weight:bold;font-size:0.875em;">${i + 1}</span>` : i + 1}
                                                     </td>
-                                                    <td style="padding: 10px; font-weight: 500;">${s.player}</td>
+                                                    <td style="padding: 10px; font-weight: 500;">${Utils.getPlayerDisplayName(s.playerRef || s.player)}</td>
                                                     <td style="padding: 10px; text-align: center;">${s.played}</td>
                                                     <td style="padding: 10px; text-align: center; color: var(--secondary);">${s.wins}</td>
                                                     <td style="padding: 10px; text-align: center; color: var(--danger);">${s.losses}</td>

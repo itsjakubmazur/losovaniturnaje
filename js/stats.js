@@ -37,49 +37,51 @@ const Stats = {
             if (!m.completed || !m.sets || m.isPlayoff || !m.group) return;
 
             const groupLetter = m.group;
-            const p1Name = Utils.getPlayerDisplayName(m.player1);
-            const p2Name = Utils.getPlayerDisplayName(m.player2);
+            const p1Key = m.player1?.name || m.player1;
+            const p2Key = m.player2?.name || m.player2;
 
-            if (!groupStandings[groupLetter][p1Name] || !groupStandings[groupLetter][p2Name]) return;
+            if (!groupStandings[groupLetter][p1Key] || !groupStandings[groupLetter][p2Key]) return;
 
-            groupStandings[groupLetter][p1Name].played++;
-            groupStandings[groupLetter][p2Name].played++;
+            groupStandings[groupLetter][p1Key].playerRef = m.player1;
+            groupStandings[groupLetter][p2Key].playerRef = m.player2;
+            groupStandings[groupLetter][p1Key].played++;
+            groupStandings[groupLetter][p2Key].played++;
 
             let p1SetsWon = 0;
             let p2SetsWon = 0;
 
             m.sets.forEach(set => {
                 if (set.score1 !== null && set.score2 !== null) {
-                    groupStandings[groupLetter][p1Name].pointsWon += set.score1;
-                    groupStandings[groupLetter][p1Name].pointsLost += set.score2;
-                    groupStandings[groupLetter][p2Name].pointsWon += set.score2;
-                    groupStandings[groupLetter][p2Name].pointsLost += set.score1;
+                    groupStandings[groupLetter][p1Key].pointsWon += set.score1;
+                    groupStandings[groupLetter][p1Key].pointsLost += set.score2;
+                    groupStandings[groupLetter][p2Key].pointsWon += set.score2;
+                    groupStandings[groupLetter][p2Key].pointsLost += set.score1;
 
                     if (set.score1 > set.score2) {
                         p1SetsWon++;
-                        groupStandings[groupLetter][p1Name].setsWon++;
-                        groupStandings[groupLetter][p2Name].setsLost++;
+                        groupStandings[groupLetter][p1Key].setsWon++;
+                        groupStandings[groupLetter][p2Key].setsLost++;
                     } else if (set.score2 > set.score1) {
                         p2SetsWon++;
-                        groupStandings[groupLetter][p2Name].setsWon++;
-                        groupStandings[groupLetter][p1Name].setsLost++;
+                        groupStandings[groupLetter][p2Key].setsWon++;
+                        groupStandings[groupLetter][p1Key].setsLost++;
                     }
                 }
             });
 
             if (p1SetsWon > p2SetsWon) {
-                groupStandings[groupLetter][p1Name].wins++;
-                groupStandings[groupLetter][p1Name].points += State.current.pointsForWin;
-                groupStandings[groupLetter][p2Name].losses++;
+                groupStandings[groupLetter][p1Key].wins++;
+                groupStandings[groupLetter][p1Key].points += State.current.pointsForWin;
+                groupStandings[groupLetter][p2Key].losses++;
             } else if (p2SetsWon > p1SetsWon) {
-                groupStandings[groupLetter][p2Name].wins++;
-                groupStandings[groupLetter][p2Name].points += State.current.pointsForWin;
-                groupStandings[groupLetter][p1Name].losses++;
+                groupStandings[groupLetter][p2Key].wins++;
+                groupStandings[groupLetter][p2Key].points += State.current.pointsForWin;
+                groupStandings[groupLetter][p1Key].losses++;
             } else {
-                groupStandings[groupLetter][p1Name].draws++;
-                groupStandings[groupLetter][p2Name].draws++;
-                groupStandings[groupLetter][p1Name].points += State.current.pointsForDraw;
-                groupStandings[groupLetter][p2Name].points += State.current.pointsForDraw;
+                groupStandings[groupLetter][p1Key].draws++;
+                groupStandings[groupLetter][p2Key].draws++;
+                groupStandings[groupLetter][p1Key].points += State.current.pointsForDraw;
+                groupStandings[groupLetter][p2Key].points += State.current.pointsForDraw;
             }
         });
 
@@ -103,22 +105,22 @@ const Stats = {
     calculatePositionalStandings() {
         const tiers = {};
         State.current.matches.filter(m => m.isPlayoff && m.positionTier !== undefined).forEach(m => {
-            if (!tiers[m.positionTier]) tiers[m.positionTier] = { matches: [], players: new Set() };
+            if (!tiers[m.positionTier]) tiers[m.positionTier] = { matches: [], playerMap: {} };
             tiers[m.positionTier].matches.push(m);
-            tiers[m.positionTier].players.add(Utils.getPlayerDisplayName(m.player1));
-            tiers[m.positionTier].players.add(Utils.getPlayerDisplayName(m.player2));
+            tiers[m.positionTier].playerMap[m.player1?.name || m.player1] = m.player1;
+            tiers[m.positionTier].playerMap[m.player2?.name || m.player2] = m.player2;
         });
 
         const finalStandings = [];
         Object.keys(tiers).sort((a, b) => a - b).forEach(tier => {
-            const { matches, players } = tiers[tier];
+            const { matches, playerMap } = tiers[tier];
             const stats = {};
-            players.forEach(name => {
-                stats[name] = { player: name, played: 0, wins: 0, draws: 0, losses: 0, setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0, points: 0 };
+            Object.entries(playerMap).forEach(([key, playerObj]) => {
+                stats[key] = { player: key, playerRef: playerObj, played: 0, wins: 0, draws: 0, losses: 0, setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0, points: 0 };
             });
             matches.filter(m => m.completed).forEach(m => {
-                const p1 = Utils.getPlayerDisplayName(m.player1);
-                const p2 = Utils.getPlayerDisplayName(m.player2);
+                const p1 = m.player1?.name || m.player1;
+                const p2 = m.player2?.name || m.player2;
                 if (!stats[p1] || !stats[p2]) return;
                 stats[p1].played++; stats[p2].played++;
                 let p1s = 0, p2s = 0;
@@ -156,6 +158,7 @@ const Stats = {
             const name = p.name || p;
             stats[name] = {
                 player: name,
+                playerRef: p,
                 played: 0,
                 wins: 0,
                 draws: 0,
@@ -167,16 +170,18 @@ const Stats = {
                 points: 0
             };
         });
-        
+
         State.current.matches.forEach(m => {
             if (!m.completed || !m.sets) return;
 
-            const p1Name = Utils.getPlayerDisplayName(m.player1);
-            const p2Name = Utils.getPlayerDisplayName(m.player2);
+            const p1Name = m.player1?.name || m.player1;
+            const p2Name = m.player2?.name || m.player2;
 
-            if (!stats[p1Name]) stats[p1Name] = { player: p1Name, played: 0, wins: 0, draws: 0, losses: 0, setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0, points: 0 };
-            if (!stats[p2Name]) stats[p2Name] = { player: p2Name, played: 0, wins: 0, draws: 0, losses: 0, setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0, points: 0 };
+            if (!stats[p1Name]) stats[p1Name] = { player: p1Name, playerRef: m.player1, played: 0, wins: 0, draws: 0, losses: 0, setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0, points: 0 };
+            if (!stats[p2Name]) stats[p2Name] = { player: p2Name, playerRef: m.player2, played: 0, wins: 0, draws: 0, losses: 0, setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0, points: 0 };
 
+            stats[p1Name].playerRef = stats[p1Name].playerRef || m.player1;
+            stats[p2Name].playerRef = stats[p2Name].playerRef || m.player2;
             stats[p1Name].played++;
             stats[p2Name].played++;
             
