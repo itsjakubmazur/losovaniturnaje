@@ -273,7 +273,7 @@ tr:nth-child(even) { background: #f8fafc; }
     <div class="sb"><div class="lbl">Body celkem</div><div class="val">${totalPoints}</div></div>
 </div>
 ${content}
-<div class="footer">Generováno aplikací Losovací web &bull; ${new Date().toLocaleDateString('cs-CZ')} ${new Date().toLocaleTimeString('cs-CZ')}</div>
+<div class="footer">Generováno aplikací Správa turnajů &bull; ${new Date().toLocaleDateString('cs-CZ')} ${new Date().toLocaleTimeString('cs-CZ')}</div>
 <script>window.onload = function() { window.print(); };<\/script>
 </body>
 </html>`);

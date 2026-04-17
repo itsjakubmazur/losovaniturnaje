@@ -1,6 +1,6 @@
 {
-  "name": "Losovací web",
-  "short_name": "Losovací web",
+  "name": "Správa turnajů",
+  "short_name": "Správa turnajů",
   "description": "Správa turnajů",
   "start_url": "./index.html",
   "display": "standalone",

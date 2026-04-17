@@ -6,7 +6,7 @@ const i18n = {
     translations: {
         cs: {
             // Header
-            'tournament.title': 'Losovací web',
+            'tournament.title': 'Správa turnajů',
             'tournament.subtitle': 'Správa turnajů',
 
             // Buttons
