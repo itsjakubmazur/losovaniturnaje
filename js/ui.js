@@ -564,14 +564,80 @@ const UI = {
         const completed = State.current.matches.filter(m => m.completed).length;
         const total = State.current.matches.length;
         const allCompleted = completed === total;
+        const isGroups = State.current.system === 'groups';
+
+        const winner = State.current.standings[0];
+        const winnerName = Utils.getPlayerDisplayName(winner?.playerRef || winner?.player) || '-';
+
+        const statsGrid = `
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">${State.current.participants.length}</div>
+                    <div class="stat-label">Účastníků</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${total}</div>
+                    <div class="stat-label">Zápasů</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${State.current.rounds.length}</div>
+                    <div class="stat-label">Kol</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${Utils.calculateTotalSets()}</div>
+                    <div class="stat-label">Setů</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${Utils.calculateTotalPoints()}</div>
+                    <div class="stat-label">Bodů</div>
+                </div>
+            </div>`;
+
+        const buttons = `
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="Export.toJSON()">📥 JSON</button>
+                <button class="btn btn-secondary" onclick="Export.toCSV()">📊 CSV</button>
+                <button class="btn btn-outline" onclick="goToMatches()">← ${i18n.t('btn.back')}</button>
+                ${allCompleted ? `
+                    <button class="btn btn-primary" onclick="saveToHistory()">💾 ${i18n.currentLang === 'cs' ? 'Uložit do historie' : 'Save to History'}</button>
+                    <button class="btn btn-danger" onclick="if(State.reset()) UI.render()">🆕 ${i18n.currentLang === 'cs' ? 'Nový turnaj' : 'New Tournament'}</button>
+                ` : ''}
+            </div>`;
+
+        if (isGroups) {
+            const bracketHTML = State.current.playoffBracket
+                ? (State.current.playoffBracket.type === 'positional'
+                    ? Playoff.renderPositionalPlayoff()
+                    : Playoff.renderBracket())
+                : '';
+
+            return `
+                <div class="card">
+                    <h2>🏆 ${i18n.t('step.results')}</h2>
+                    ${allCompleted ? `
+                        <div class="alert alert-success">
+                            🎉 Turnaj dokončen! Vítěz: <strong>${winnerName}</strong>
+                        </div>
+                    ` : `
+                        <div class="alert alert-warning">
+                            ⚠️ Turnaj není dokončen (${completed}/${total} zápasů)
+                        </div>
+                    `}
+                    ${statsGrid}
+                    ${this.renderGroupStandings()}
+                    ${bracketHTML}
+                    ${buttons}
+                </div>
+            `;
+        }
 
         return `
             <div class="card">
                 <h2>🏆 ${i18n.t('step.results')}</h2>
-                
+
                 ${allCompleted ? `
                     <div class="alert alert-success">
-                        🎉 Turnaj dokončen! Vítěz: <strong>${Utils.getPlayerDisplayName(State.current.standings[0]?.playerRef || State.current.standings[0]?.player) || '-'}</strong>
+                        🎉 Turnaj dokončen! Vítěz: <strong>${winnerName}</strong>
                     </div>
                 ` : `
                     <div class="alert alert-warning">
@@ -579,28 +645,7 @@ const UI = {
                     </div>
                 `}
 
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value">${State.current.participants.length}</div>
-                        <div class="stat-label">Účastníků</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${total}</div>
-                        <div class="stat-label">Zápasů</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${State.current.rounds.length}</div>
-                        <div class="stat-label">Kol</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${Utils.calculateTotalSets()}</div>
-                        <div class="stat-label">Setů</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">${Utils.calculateTotalPoints()}</div>
-                        <div class="stat-label">Bodů</div>
-                    </div>
-                </div>
+                ${statsGrid}
 
                 <table>
                     <thead>
@@ -626,15 +671,7 @@ const UI = {
                     </tbody>
                 </table>
 
-                <div class="button-group">
-                    <button class="btn btn-secondary" onclick="Export.toJSON()">📥 JSON</button>
-                    <button class="btn btn-secondary" onclick="Export.toCSV()">📊 CSV</button>
-                    <button class="btn btn-outline" onclick="goToMatches()">← ${i18n.t('btn.back')}</button>
-                    ${allCompleted ? `
-                        <button class="btn btn-primary" onclick="saveToHistory()">💾 ${i18n.currentLang === 'cs' ? 'Uložit do historie' : 'Save to History'}</button>
-                        <button class="btn btn-danger" onclick="if(State.reset()) UI.render()">🆕 ${i18n.currentLang === 'cs' ? 'Nový turnaj' : 'New Tournament'}</button>
-                    ` : ''}
-                </div>
+                ${buttons}
             </div>
         `;
     },
