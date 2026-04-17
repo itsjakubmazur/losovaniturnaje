@@ -100,7 +100,56 @@ const Stats = {
         return groupStandings;
     },
 
+    calculatePositionalStandings() {
+        const tiers = {};
+        State.current.matches.filter(m => m.isPlayoff && m.positionTier !== undefined).forEach(m => {
+            if (!tiers[m.positionTier]) tiers[m.positionTier] = { matches: [], players: new Set() };
+            tiers[m.positionTier].matches.push(m);
+            tiers[m.positionTier].players.add(Utils.getPlayerDisplayName(m.player1));
+            tiers[m.positionTier].players.add(Utils.getPlayerDisplayName(m.player2));
+        });
+
+        const finalStandings = [];
+        Object.keys(tiers).sort((a, b) => a - b).forEach(tier => {
+            const { matches, players } = tiers[tier];
+            const stats = {};
+            players.forEach(name => {
+                stats[name] = { player: name, played: 0, wins: 0, draws: 0, losses: 0, setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0, points: 0 };
+            });
+            matches.filter(m => m.completed).forEach(m => {
+                const p1 = Utils.getPlayerDisplayName(m.player1);
+                const p2 = Utils.getPlayerDisplayName(m.player2);
+                if (!stats[p1] || !stats[p2]) return;
+                stats[p1].played++; stats[p2].played++;
+                let p1s = 0, p2s = 0;
+                (m.sets || []).forEach(s => {
+                    if (s.score1 !== null && s.score2 !== null) {
+                        stats[p1].pointsWon += s.score1; stats[p1].pointsLost += s.score2;
+                        stats[p2].pointsWon += s.score2; stats[p2].pointsLost += s.score1;
+                        if (s.score1 > s.score2) { p1s++; stats[p1].setsWon++; stats[p2].setsLost++; }
+                        else if (s.score2 > s.score1) { p2s++; stats[p2].setsWon++; stats[p1].setsLost++; }
+                    }
+                });
+                if (p1s > p2s) { stats[p1].wins++; stats[p1].points += State.current.pointsForWin; stats[p2].losses++; }
+                else if (p2s > p1s) { stats[p2].wins++; stats[p2].points += State.current.pointsForWin; stats[p1].losses++; }
+                else { stats[p1].draws++; stats[p2].draws++; stats[p1].points += State.current.pointsForDraw; stats[p2].points += State.current.pointsForDraw; }
+            });
+            const sorted = Object.values(stats).sort((a, b) => {
+                if (b.points !== a.points) return b.points - a.points;
+                if (b.wins !== a.wins) return b.wins - a.wins;
+                return (b.setsWon - b.setsLost) - (a.setsWon - a.setsLost);
+            });
+            sorted.forEach(p => finalStandings.push(p));
+        });
+        State.current.standings = finalStandings;
+    },
+
     calculate() {
+        if (State.current.playoffBracket?.type === 'positional' &&
+            State.current.matches.some(m => m.positionTier !== undefined)) {
+            this.calculatePositionalStandings();
+            return;
+        }
         const stats = {};
 
         State.current.participants.forEach(p => {

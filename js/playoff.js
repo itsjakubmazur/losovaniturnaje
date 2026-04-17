@@ -61,10 +61,132 @@ const Playoff = {
         return `Kolo ${round + 1}`;
     },
 
+    generatePositionalPlayoff() {
+        const groupStandings = Stats.calculateGroupStandings();
+        if (!groupStandings) {
+            Utils.showNotification('Chyba při výpočtu tabulek skupin', 'error');
+            return false;
+        }
+
+        // Group qualifiers by their finishing position across groups
+        const tiers = {};
+        Object.entries(groupStandings).forEach(([groupLetter, standings]) => {
+            standings.forEach((playerStats, pos) => {
+                const position = pos + 1;
+                if (!tiers[position]) tiers[position] = [];
+                const participant = State.current.participants.find(p => (p.name || p) === playerStats.player);
+                tiers[position].push({
+                    ...(participant && typeof participant === 'object' ? participant : { name: playerStats.player }),
+                    groupPosition: position,
+                    group: groupLetter
+                });
+            });
+        });
+
+        const numGroups = State.current.groups.length;
+        let roundCounter = State.current.rounds.length;
+
+        Object.keys(tiers).sort((a, b) => a - b).forEach(pos => {
+            const tierNum = parseInt(pos);
+            const tierPlayers = tiers[pos];
+            if (tierPlayers.length < 2) return;
+
+            const startPos = (tierNum - 1) * numGroups + 1;
+            const endPos = startPos + tierPlayers.length - 1;
+            const tierLabel = `O ${startPos}. – ${endPos}. místo`;
+
+            const players = [...tierPlayers];
+            if (players.length % 2 === 1) players.push({ name: 'BYE', isBye: true });
+            const n = players.length;
+
+            for (let round = 0; round < n - 1; round++) {
+                const roundMatches = [];
+                for (let match = 0; match < n / 2; match++) {
+                    const home = (round + match) % (n - 1);
+                    const away = (n - 1 - match + round) % (n - 1);
+                    const p1 = match === 0 ? players[n - 1] : players[home];
+                    const p2 = match === 0 ? players[away] : players[away];
+                    if (!p1.isBye && !p2.isBye) {
+                        const m = Matches.createMatch(p1, p2, roundCounter, (roundMatches.length % State.current.numCourts) + 1);
+                        m.isPlayoff = true;
+                        m.positionTier = tierNum;
+                        m.roundName = tierLabel;
+                        roundMatches.push(m);
+                    }
+                }
+                if (roundMatches.length > 0) {
+                    State.current.rounds.push(roundCounter);
+                    State.current.matches.push(...roundMatches);
+                    roundCounter++;
+                }
+            }
+        });
+
+        State.current.playoffBracket = { type: 'positional', totalRounds: 1, currentRound: 0, isKnockout: false };
+        State.save();
+        Utils.showNotification('Poziční finále vygenerováno!');
+        return true;
+    },
+
+    renderPositionalPlayoff() {
+        const tiers = {};
+        State.current.matches.filter(m => m.isPlayoff && m.positionTier !== undefined).forEach(m => {
+            if (!tiers[m.positionTier]) tiers[m.positionTier] = { name: m.roundName, matches: [] };
+            if (!tiers[m.positionTier].matches.includes(m)) tiers[m.positionTier].matches.push(m);
+        });
+        if (Object.keys(tiers).length === 0) return '';
+
+        return `
+            <div class="card">
+                <h2>🏆 Poziční finále</h2>
+                ${Object.keys(tiers).sort((a, b) => a - b).map(tier => {
+                    const { name, matches } = tiers[tier];
+                    return `
+                        <div style="margin-bottom:24px;">
+                            <h3 style="color:var(--primary);margin-bottom:10px;">🏅 ${name}</h3>
+                            <div style="display:flex;flex-direction:column;gap:6px;">
+                                ${matches.map(m => {
+                                    const idx = State.current.matches.indexOf(m);
+                                    const p1 = Utils.getPlayerDisplayName(m.player1);
+                                    const p2 = Utils.getPlayerDisplayName(m.player2);
+                                    const p1s = m.completed && m.sets ? m.sets.filter(s => s.score1 > s.score2).length : null;
+                                    const p2s = m.completed && m.sets ? m.sets.filter(s => s.score2 > s.score1).length : null;
+                                    const winner = m.completed ? (p1s > p2s ? p1 : p2) : null;
+                                    return `
+                                        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:8px;cursor:pointer;"
+                                             onclick="scrollToMatch(${idx})">
+                                            <span class="sp-court-badge" style="flex-shrink:0;">Kurt ${m.court}</span>
+                                            <span style="flex:1;${winner===p1?'font-weight:700;color:var(--primary)':''}">${p1}</span>
+                                            <span style="font-weight:700;min-width:32px;text-align:center;">
+                                                ${m.completed ? `${p1s}:${p2s}` : m.playing ? '▶' : 'vs'}
+                                            </span>
+                                            <span style="flex:1;text-align:right;${winner===p2?'font-weight:700;color:var(--primary)':''}">${p2}</span>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    },
+
     generateFromGroups() {
         if (!State.current.groups || State.current.groups.length === 0) {
             Utils.showNotification('Nejsou vytvořeny žádné skupiny!', 'error');
             return false;
+        }
+
+        // Dispatch to positional playoff if selected
+        if (State.current.playoffType === 'positional') {
+            const allGroupMatches = State.current.matches.filter(m => !m.isPlayoff);
+            if (!allGroupMatches.every(m => m.completed)) {
+                Utils.showNotification('Nejprve dokončete všechny zápasy ve skupinách!', 'error');
+                return false;
+            }
+            Stats.calculate();
+            return this.generatePositionalPlayoff();
         }
 
         // Check if all group matches are completed

@@ -26,6 +26,7 @@ const State = {
         currentRound: 0,
         swissRound: 0,
         playoffBracket: null,
+        playoffType: 'cross',
         thirdPlaceMatch: false,
         history: []
     },
@@ -256,6 +257,7 @@ const State = {
                 currentRound: 0,
                 swissRound: 0,
                 playoffBracket: null,
+                playoffType: 'cross',
                 thirdPlaceMatch: false,
                 history: this.current.history
             };

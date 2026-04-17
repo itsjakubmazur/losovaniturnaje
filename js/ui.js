@@ -173,12 +173,29 @@ const UI = {
                         <input type="number" id="num-groups" min="2" max="8" value="${State.current.numGroups}">
                     </div>
                     <div class="input-group">
+                        <label>Typ playoff</label>
+                        <div class="system-options" style="grid-template-columns:1fr 1fr;">
+                            <div class="system-option ${(State.current.playoffType || 'cross') === 'cross' ? 'active' : ''}" data-playoff-type="cross">
+                                <div style="font-size:1.8em;">⚔️</div>
+                                <h3>Křížový pavouk</h3>
+                                <p>1. vs 2. z jiné skupiny, semifinále a finále</p>
+                            </div>
+                            <div class="system-option ${State.current.playoffType === 'positional' ? 'active' : ''}" data-playoff-type="positional">
+                                <div style="font-size:1.8em;">🏅</div>
+                                <h3>Poziční finále</h3>
+                                <p>1. místa spolu, 2. místa spolu atd.</p>
+                            </div>
+                        </div>
+                    </div>
+                    ${(State.current.playoffType || 'cross') === 'cross' ? `
+                    <div class="input-group">
                         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
                             <input type="checkbox" id="third-place-match" ${State.current.thirdPlaceMatch ? 'checked' : ''} style="width:auto;margin:0;">
                             Zápas o 3. místo po semifinále
                         </label>
                         <small>Poražení ze semifinále odehrají zápas o bronz</small>
                     </div>
+                    ` : ''}
                 ` : ''}
                 ${State.current.system === 'knockout' ? `
                     <div class="input-group">
@@ -460,7 +477,11 @@ const UI = {
 
                 ${this.renderMatchFilters()}
 
-                ${State.current.playoffBracket ? Playoff.renderBracket() : ''}
+                ${State.current.playoffBracket
+                    ? (State.current.playoffBracket.type === 'positional'
+                        ? Playoff.renderPositionalPlayoff()
+                        : Playoff.renderBracket())
+                    : ''}
 
                 ${State.current.system === 'groups' && !State.current.playoffBracket ? this.renderGroupStandings() : ''}
 
@@ -513,7 +534,7 @@ const UI = {
                         🇨🇭 Generovat další kolo ${State.current.swissRound + 1}
                     </button>
                 ` : ''}
-                ${State.current.playoffBracket && State.current.playoffBracket.currentRound < State.current.playoffBracket.totalRounds - 1 ? `
+                ${State.current.playoffBracket && State.current.playoffBracket.type !== 'positional' && State.current.playoffBracket.currentRound < State.current.playoffBracket.totalRounds - 1 ? `
                     <button class="btn btn-secondary" onclick="advancePlayoffRound()" id="advance-playoff-btn"
                             ${State.current.matches.filter(m => m.knockoutRound === State.current.playoffBracket.currentRound).every(m => m.completed) ? '' : 'disabled'}>
                         🏆 Generovat další fázi playoff
@@ -521,7 +542,7 @@ const UI = {
                 ` : ''}
                 ${State.current.system === 'groups' && !State.current.playoffBracket && State.current.matches.filter(m => !m.isPlayoff).every(m => m.completed) && State.current.matches.filter(m => !m.isPlayoff).length > 0 ? `
                     <button class="btn btn-warning" onclick="if(Playoff.generateFromGroups()) UI.render();">
-                        🏆 Vygenerovat playoff pavouk
+                        🏆 ${State.current.playoffType === 'positional' ? 'Vygenerovat poziční finále' : 'Vygenerovat playoff pavouk'}
                     </button>
                 ` : ''}
                     <button class="btn btn-primary" onclick="goToResults()">
@@ -647,7 +668,9 @@ const UI = {
 
         let standingsContent;
         if (hasPlayoff) {
-            standingsContent = this.renderSpectatorBracket();
+            standingsContent = State.current.playoffBracket.type === 'positional'
+                ? this.renderSpectatorPositionalPlayoff()
+                : this.renderSpectatorBracket();
         } else if (hasGroups) {
             standingsContent = this.renderSpectatorGroupStandings();
         } else {
@@ -869,6 +892,37 @@ const UI = {
         `;
     },
 
+    renderSpectatorPositionalPlayoff() {
+        const tiers = {};
+        State.current.matches.filter(m => m.isPlayoff && m.positionTier !== undefined).forEach(m => {
+            if (!tiers[m.positionTier]) tiers[m.positionTier] = { name: m.roundName, matches: [] };
+            if (!tiers[m.positionTier].matches.includes(m)) tiers[m.positionTier].matches.push(m);
+        });
+        if (Object.keys(tiers).length === 0) return '<div class="spectator-empty">Poziční finále ještě nezačalo</div>';
+
+        return `<div class="sp-bracket">
+            ${Object.keys(tiers).sort((a, b) => a - b).map(tier => {
+                const { name, matches } = tiers[tier];
+                return `
+                    <div class="sp-bracket-round">
+                        <div class="sp-bracket-round-name">🏅 ${name}</div>
+                        ${matches.map(m => {
+                            const p1 = Utils.getPlayerDisplayName(m.player1);
+                            const p2 = Utils.getPlayerDisplayName(m.player2);
+                            const p1w = m.sets ? m.sets.filter(s => s.score1 !== null && s.score1 > s.score2).length : 0;
+                            const p2w = m.sets ? m.sets.filter(s => s.score2 !== null && s.score2 > s.score1).length : 0;
+                            const winner = m.completed ? (p1w > p2w ? p1 : p2) : null;
+                            return `<div class="sp-bracket-match ${m.playing ? 'sp-bm-live' : ''} ${m.completed ? 'sp-bm-done' : ''}">
+                                <div class="sp-bm-player ${winner === p1 ? 'sp-bm-winner' : ''}">${p1}</div>
+                                <div class="sp-bm-player ${winner === p2 ? 'sp-bm-winner' : ''}">${p2}</div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                `;
+            }).join('')}
+        </div>`;
+    },
+
     renderMatchFilters() {
         return `
             <div style="background: var(--bg); padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
@@ -984,6 +1038,14 @@ const UI = {
                 State.current.disciplineType = opt.dataset.discipline;
                 State.save();
                 this.render();
+            });
+        });
+
+        document.querySelectorAll('.system-option[data-playoff-type]').forEach(opt => {
+            opt.addEventListener('click', () => {
+                State.current.playoffType = opt.dataset.playoffType;
+                State.save();
+                UI.render();
             });
         });
 

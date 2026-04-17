@@ -69,48 +69,53 @@ const Matches = {
             return;
         }
 
-        let roundCounter = 0;
+        // Pre-compute rounds for every group without final round/court assignments
+        const groupRounds = [];
         State.current.groups.forEach((group, groupIndex) => {
-            // Filter group members by discipline
             const filteredGroup = Utils.filterParticipantsByDiscipline(group);
-
-            if (filteredGroup.length === 0) return; // Skip empty groups
+            if (filteredGroup.length === 0) { groupRounds.push([]); return; }
 
             const groupLetter = String.fromCharCode(65 + groupIndex);
             const players = [...filteredGroup];
-            
             if (players.length % 2 === 1) players.push({ name: 'BYE', isBye: true });
-            
+
             const n = players.length;
-            const numRounds = n - 1;
-            const matchesPerRound = n / 2;
-            
-            for (let round = 0; round < numRounds; round++) {
+            const rounds = [];
+            for (let round = 0; round < n - 1; round++) {
                 const roundMatches = [];
-                
-                for (let match = 0; match < matchesPerRound; match++) {
+                for (let match = 0; match < n / 2; match++) {
                     const home = (round + match) % (n - 1);
                     const away = (n - 1 - match + round) % (n - 1);
-                    
                     const p1 = match === 0 ? players[n - 1] : players[home];
                     const p2 = match === 0 ? players[away] : players[away];
-                    
                     if (!p1.isBye && !p2.isBye) {
-                        const m = this.createMatch(p1, p2, roundCounter, (roundMatches.length % State.current.numCourts) + 1);
+                        const m = this.createMatch(p1, p2, 0, 1); // placeholder, set below
                         m.group = groupLetter;
                         roundMatches.push(m);
                     }
                 }
-                
-                if (roundMatches.length > 0) {
-                    if (!State.current.rounds.includes(roundCounter)) {
-                        State.current.rounds.push(roundCounter);
-                    }
-                    State.current.matches.push(...roundMatches);
-                    roundCounter++;
-                }
+                if (roundMatches.length > 0) rounds.push(roundMatches);
             }
+            groupRounds.push(rounds);
         });
+
+        // Interleave: for each round index r take matches from all groups,
+        // then assign final round number and courts sequentially.
+        const maxRounds = Math.max(0, ...groupRounds.map(g => g.length));
+        let roundCounter = 0;
+        for (let r = 0; r < maxRounds; r++) {
+            const combined = [];
+            groupRounds.forEach(groupR => { if (r < groupR.length) combined.push(...groupR[r]); });
+            if (combined.length > 0) {
+                combined.forEach((m, i) => {
+                    m.round = roundCounter;
+                    m.court = (i % State.current.numCourts) + 1;
+                });
+                State.current.rounds.push(roundCounter);
+                State.current.matches.push(...combined);
+                roundCounter++;
+            }
+        }
     },
 
     createMatch(p1, p2, round, court) {
