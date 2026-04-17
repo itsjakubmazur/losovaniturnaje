@@ -1,10 +1,11 @@
 // Service Worker - Offline caching pro Losovací web
-const CACHE_NAME = 'losovaci-web-v2';
+const CACHE_NAME = 'losovaci-web-v3';
 const STATIC_ASSETS = [
     './',
     './index.html',
     './css/styles.css',
     './js/app.js',
+    './js/firebase.js',
     './js/state.js',
     './js/ui.js',
     './js/matches.js',
