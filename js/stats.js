@@ -223,7 +223,7 @@ const Stats = {
             }
         });
         
-        State.current.standings = Object.values(stats).sort((a, b) => {
+        const sorted = Object.values(stats).sort((a, b) => {
             if (b.points !== a.points) return b.points - a.points;
             if (b.wins !== a.wins) return b.wins - a.wins;
             const setDiffA = a.setsWon - a.setsLost;
@@ -233,6 +233,64 @@ const Stats = {
             const pointDiffB = b.pointsWon - b.pointsLost;
             return pointDiffB - pointDiffA;
         });
+
+        // For knockout brackets, reorder by playoff result (final winner = 1st, etc.)
+        if (State.current.playoffBracket && State.current.playoffBracket.type !== 'positional') {
+            State.current.standings = this.applyKnockoutOrder(sorted);
+        } else {
+            State.current.standings = sorted;
+        }
+    },
+
+    // Reorder standings so knockout bracket results determine positions 1-4
+    applyKnockoutOrder(sorted) {
+        const playoffMatches = State.current.matches.filter(m => m.isPlayoff || m.knockoutRound !== undefined);
+        if (playoffMatches.length === 0) return sorted;
+
+        const getMatchWinner = (m) => {
+            if (!m.completed || !m.sets) return null;
+            const p1s = m.sets.filter(s => s.score1 > s.score2).length;
+            const p2s = m.sets.filter(s => s.score2 > s.score1).length;
+            if (p1s > p2s) return m.player1?.name || m.player1;
+            if (p2s > p1s) return m.player2?.name || m.player2;
+            return null;
+        };
+        const getMatchLoser = (m) => {
+            const winner = getMatchWinner(m);
+            if (!winner) return null;
+            const p1 = m.player1?.name || m.player1;
+            return winner === p1 ? (m.player2?.name || m.player2) : p1;
+        };
+
+        // Find the final match: highest knockoutRound, not thirdPlace
+        const maxRound = Math.max(...playoffMatches.filter(m => !m.isThirdPlace).map(m => m.knockoutRound ?? -1));
+        const finalMatch = playoffMatches.find(m => !m.isThirdPlace && (m.knockoutRound ?? -1) === maxRound && m.completed);
+        const thirdPlaceMatch = State.current.matches.find(m => m.isThirdPlace && m.completed);
+
+        if (!finalMatch) return sorted;
+
+        const placed = new Set();
+        const result = [];
+
+        const pushByName = (name) => {
+            if (!name || placed.has(name)) return;
+            const entry = sorted.find(s => s.player === name);
+            if (entry) { result.push(entry); placed.add(name); }
+        };
+
+        // 1st: winner of final
+        pushByName(getMatchWinner(finalMatch));
+        // 2nd: loser of final
+        pushByName(getMatchLoser(finalMatch));
+        // 3rd: winner of 3rd place match
+        if (thirdPlaceMatch) pushByName(getMatchWinner(thirdPlaceMatch));
+        // 4th: loser of 3rd place match
+        if (thirdPlaceMatch) pushByName(getMatchLoser(thirdPlaceMatch));
+
+        // Rest: sorted by points (group phase performance)
+        sorted.forEach(s => { if (!placed.has(s.player)) result.push(s); });
+
+        return result;
     },
 
     // Statistiky napříč všemi turnaji v historii
