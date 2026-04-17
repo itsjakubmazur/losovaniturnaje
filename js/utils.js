@@ -12,6 +12,20 @@ const Utils = {
         if (!player) return 'TBD';
         const name = player.name || player;
         const partner = player.partner;
+        const teamName = player.teamName;
+        if (partner && teamName) {
+            return `<span class="team-nickname">${teamName}</span><span class="team-players">${name} & ${partner}</span>`;
+        }
+        return partner ? `${name} & ${partner}` : name;
+    },
+
+    // Prostý text bez HTML (pro confirm dialogy apod.)
+    getPlayerDisplayNamePlain(player) {
+        if (!player) return 'TBD';
+        const name = player.name || player;
+        const partner = player.partner;
+        const teamName = player.teamName;
+        if (partner && teamName) return teamName;
         return partner ? `${name} & ${partner}` : name;
     },
 

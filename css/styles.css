@@ -1543,3 +1543,16 @@ tr:hover { background: var(--bg); }
     transition: all 0.3s;
 }
 .status-dot.completed { background: var(--secondary); }
+
+/* ===== TEAM NICKNAME DISPLAY ===== */
+.team-nickname {
+    display: block;
+    font-weight: 700;
+    font-size: 1em;
+}
+.team-players {
+    display: block;
+    font-size: 0.78em;
+    color: var(--text-muted);
+    font-weight: 400;
+}

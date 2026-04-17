@@ -126,6 +126,10 @@ function openParticipantModal(index = -1) {
                 <label>${i18n.t('participant.partner')}</label>
                 <input type="text" id="modal-partner" value="${participant?.partner || ''}" placeholder="${i18n.currentLang === 'cs' ? 'Jméno partnera' : 'Partner Name'}">
             </div>
+            <div class="input-group" id="teamname-group" style="display:${participant?.partner ? 'block' : 'none'};">
+                <label>${i18n.t('participant.teamname')}</label>
+                <input type="text" id="modal-teamname" value="${participant?.teamName || ''}" placeholder="${i18n.currentLang === 'cs' ? 'Přezdívka (nepovinné)' : 'Nickname (optional)'}">
+            </div>
             <div class="input-group">
                 <label>${i18n.t('participant.club')}</label>
                 <input type="text" id="modal-club" value="${participant?.club || ''}" placeholder="${i18n.currentLang === 'cs' ? 'SK Badminton Praha' : 'SK Badminton Prague'}">
@@ -160,9 +164,12 @@ function saveParticipant() {
         return;
     }
 
+    const isDouble = document.getElementById('modal-type').value === 'double';
+    const teamNameVal = isDouble ? document.getElementById('modal-teamname').value.trim() : null;
     const participant = {
         name: name,
-        partner: document.getElementById('modal-type').value === 'double' ? document.getElementById('modal-partner').value.trim() : null,
+        partner: isDouble ? document.getElementById('modal-partner').value.trim() : null,
+        teamName: (isDouble && teamNameVal) ? teamNameVal : null,
         club: document.getElementById('modal-club').value.trim(),
         seed: parseInt(document.getElementById('modal-seed').value),
         email: document.getElementById('modal-email').value.trim(),
@@ -176,10 +183,10 @@ function saveParticipant() {
         // Aktualizuj jméno/partnera v existujících zápasech
         State.current.matches.forEach(match => {
             if (match.player1 && match.player1.name === oldParticipant.name) {
-                match.player1 = Object.assign({}, match.player1, { name: participant.name, partner: participant.partner });
+                match.player1 = Object.assign({}, match.player1, { name: participant.name, partner: participant.partner, teamName: participant.teamName });
             }
             if (match.player2 && match.player2.name === oldParticipant.name) {
-                match.player2 = Object.assign({}, match.player2, { name: participant.name, partner: participant.partner });
+                match.player2 = Object.assign({}, match.player2, { name: participant.name, partner: participant.partner, teamName: participant.teamName });
             }
         });
 
@@ -187,7 +194,7 @@ function saveParticipant() {
         State.current.groups.forEach(group => {
             group.forEach((p, i) => {
                 if (p && p.name === oldParticipant.name) {
-                    group[i] = Object.assign({}, p, { name: participant.name, partner: participant.partner });
+                    group[i] = Object.assign({}, p, { name: participant.name, partner: participant.partner, teamName: participant.teamName });
                 }
             });
         });
@@ -215,20 +222,43 @@ function removeParticipant(index) {
 }
 
 function autoFillParticipants() {
-    const names = ['Jan Novák', 'Petr Svoboda', 'Karel Dvořák', 'Tomáš Černý', 
-                   'Martin Procházka', 'Jiří Kučera', 'Pavel Veselý', 'Lukáš Horák'];
+    const singles = ['Jan Novák', 'Petr Svoboda', 'Karel Dvořák', 'Tomáš Černý',
+                     'Martin Procházka', 'Jiří Kučera', 'Pavel Veselý', 'Lukáš Horák'];
+    const doubles = [
+        { name: 'Jan Novák', partner: 'Petr Svoboda', teamName: 'Letci' },
+        { name: 'Karel Dvořák', partner: 'Tomáš Černý', teamName: 'Orel' },
+        { name: 'Martin Procházka', partner: 'Jiří Kučera', teamName: 'Blesk' },
+        { name: 'Pavel Veselý', partner: 'Lukáš Horák', teamName: 'Dynamit' },
+        { name: 'Ondřej Málek', partner: 'Filip Kratochvíl', teamName: 'Smečkaři' },
+        { name: 'Adam Blažek', partner: 'Michal Říha', teamName: 'Smash Bros' },
+        { name: 'Jakub Šimák', partner: 'David Zeman', teamName: 'Performa' },
+        { name: 'Vojtěch Tůma', partner: 'Radek Pokorný', teamName: 'Turbíny' },
+    ];
     const clubs = ['SK Praha', 'TJ Brno', 'BC Ostrava', 'SK Plzeň'];
-    
-    names.forEach((name, i) => {
-        State.current.participants.push({
-            name: name,
-            club: clubs[i % clubs.length],
-            seed: Math.floor(Math.random() * 10) + 1,
-            email: `${name.toLowerCase().replace(' ', '.')}@example.com`,
-            phone: `+420 ${Math.floor(Math.random() * 900000000 + 100000000)}`
+    const isDoubles = State.current.disciplineType === 'doubles';
+
+    if (isDoubles) {
+        doubles.forEach((pair, i) => {
+            State.current.participants.push({
+                name: pair.name,
+                partner: pair.partner,
+                teamName: pair.teamName,
+                club: clubs[i % clubs.length],
+                seed: Math.floor(Math.random() * 10) + 1,
+            });
         });
-    });
-    
+    } else {
+        singles.forEach((name, i) => {
+            State.current.participants.push({
+                name: name,
+                club: clubs[i % clubs.length],
+                seed: Math.floor(Math.random() * 10) + 1,
+                email: `${name.toLowerCase().replace(' ', '.')}@example.com`,
+                phone: `+420 ${Math.floor(Math.random() * 900000000 + 100000000)}`
+            });
+        });
+    }
+
     State.save();
     UI.render();
     Utils.showNotification('Demo účastníci přidáni');

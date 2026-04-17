@@ -7,7 +7,8 @@ const i18n = {
         cs: {
             // Header
             'tournament.title': 'Losovací web',
-            'tournament.subtitle': 'Správa turnajů',
+            'tournament.subtitle': 'Badmintonový turnajový manažer',
+            'participant.teamname': 'Přezdívka týmu',
 
             // Buttons
             'btn.share': 'QR kód - Sdílet',
@@ -109,7 +110,8 @@ const i18n = {
         en: {
             // Header
             'tournament.title': 'Tournament Manager',
-            'tournament.subtitle': 'Tournament Management',
+            'tournament.subtitle': 'Badminton Tournament Manager',
+            'participant.teamname': 'Team Nickname',
 
             // Buttons
             'btn.share': 'QR Code - Share',
