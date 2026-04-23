@@ -418,8 +418,11 @@ function openExportMenu() {
 
 function saveToHistory() {
     const tournament = State.saveToHistory();
-    Utils.showNotification('Turnaj uložen do historie');
-    Utils.throwConfetti();
+    if (tournament) {
+        Utils.showNotification('Turnaj uložen do historie');
+        Utils.throwConfetti();
+        UI.render();
+    }
 }
 
 function loadTournamentFromHistory(id) {

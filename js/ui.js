@@ -913,6 +913,7 @@ const UI = {
                         <th title="Zápasy">Z</th>
                         <th title="Výhry">V</th>
                         <th title="Sety">Sety</th>
+                        <th title="Míče">Míče</th>
                         <th title="Body">B</th>
                     </tr>
                 </thead>
@@ -924,6 +925,7 @@ const UI = {
                             <td>${s.played}</td>
                             <td class="sp-wins">${s.wins}</td>
                             <td class="sp-sets">${s.setsWon}:${s.setsLost}</td>
+                            <td class="sp-balls">${s.pointsWon}:${s.pointsLost}</td>
                             <td class="sp-pts">${s.points}</td>
                         </tr>
                     `).join('')}
@@ -943,7 +945,7 @@ const UI = {
                 <div class="sp-group-block">
                     <div class="sp-group-header" style="background:${color};">Skupina ${letter}</div>
                     <table class="sp-table">
-                        <thead><tr><th>#</th><th class="sp-col-name">Hráč</th><th>Z</th><th>V</th><th>Sety</th><th>B</th></tr></thead>
+                        <thead><tr><th>#</th><th class="sp-col-name">Hráč</th><th>Z</th><th>V</th><th>Sety</th><th>Míče</th><th>B</th></tr></thead>
                         <tbody>
                             ${standings.map((s, i) => `
                                 <tr class="${i < 2 ? 'sp-qualify' : ''}">
@@ -952,6 +954,7 @@ const UI = {
                                     <td>${s.played}</td>
                                     <td class="sp-wins">${s.wins}</td>
                                     <td class="sp-sets">${s.setsWon}:${s.setsLost}</td>
+                                    <td class="sp-balls">${s.pointsWon}:${s.pointsLost}</td>
                                     <td class="sp-pts">${s.points}</td>
                                 </tr>
                             `).join('')}
