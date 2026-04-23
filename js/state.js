@@ -268,6 +268,8 @@ const State = {
     },
 
     saveToHistory() {
+        // Exclude history from fullData to prevent circular reference during JSON.stringify
+        const { history: _history, ...currentWithoutHistory } = this.current;
         const tournament = {
             id: Date.now(),
             name: this.current.tournamentName,
@@ -278,15 +280,21 @@ const State = {
             winner: this.current.standings[0]?.player,
             standings: this.current.standings,
             completedAt: new Date().toISOString(),
-            fullData: { ...this.current } // Store complete state
+            fullData: { ...currentWithoutHistory }
         };
-        
+
         this.current.history.unshift(tournament);
         // Keep only last 50 tournaments
         if (this.current.history.length > 50) {
             this.current.history = this.current.history.slice(0, 50);
         }
-        localStorage.setItem('tournamentHistory', JSON.stringify(this.current.history));
+        try {
+            localStorage.setItem('tournamentHistory', JSON.stringify(this.current.history));
+        } catch (e) {
+            console.error('Failed to save history:', e);
+            Utils.showNotification('Chyba při ukládání do historie', 'error');
+            return null;
+        }
 
         if (db && !this.readOnly) {
             db.ref(`history/${this.getDeviceId()}`).set(this.current.history).catch(console.error);
