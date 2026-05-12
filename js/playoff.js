@@ -172,6 +172,210 @@ const Playoff = {
         `;
     },
 
+    // Pair players in a tier: standard bracket seeding (seed 1 vs last, 2 vs second-last…)
+    // players must already be sorted strongest-first and padded to power of 2
+    _pairTier(players) {
+        const n = players.length;
+        const paired = [];
+        for (let i = 0; i < n / 2; i++) {
+            paired.push(players[i], players[n - 1 - i]);
+        }
+        return paired;
+    },
+
+    generateConsolationBrackets(advancersPerGroup) {
+        const groupStandings = Stats.calculateGroupStandings();
+        if (!groupStandings) return false;
+
+        const numGroups = State.current.groups.length;
+        const tiers = {};
+
+        Object.entries(groupStandings).forEach(([groupLetter, standings]) => {
+            standings.forEach((playerStats, pos) => {
+                const position = pos + 1;
+                if (position <= advancersPerGroup) return;
+                if (!tiers[position]) tiers[position] = [];
+                const participant = State.current.participants.find(p => (p.name || p) === playerStats.player);
+                tiers[position].push({
+                    ...(participant && typeof participant === 'object' ? participant : { name: playerStats.player }),
+                    groupPosition: position,
+                    group: groupLetter,
+                    points: playerStats.points,
+                    wins: playerStats.wins
+                });
+            });
+        });
+
+        State.current.consolationBrackets = [];
+
+        Object.keys(tiers).sort((a, b) => parseInt(a) - parseInt(b)).forEach(pos => {
+            const tierNum = parseInt(pos);
+            const tierPlayers = tiers[pos];
+            if (tierPlayers.length < 2) return;
+
+            const startPos = (tierNum - 1) * numGroups + 1;
+            const endPos = startPos + tierPlayers.length - 1;
+            const label = `O ${startPos}.-${endPos}. místo`;
+
+            // Sort strongest first, pad to next power of 2 with BYEs
+            const sorted = [...tierPlayers].sort((a, b) =>
+                (b.points || 0) - (a.points || 0) || (b.wins || 0) - (a.wins || 0)
+            );
+            const n = Utils.getNextPowerOfTwo(sorted.length);
+            while (sorted.length < n) sorted.push({ name: 'BYE', isBye: true });
+
+            const totalRounds = Math.log2(n);
+            const paired = this._pairTier(sorted);
+
+            const roundIndex = State.current.rounds.length;
+            State.current.rounds.push(roundIndex);
+
+            let matchCount = 0;
+            for (let i = 0; i < paired.length; i += 2) {
+                const p1 = paired[i];
+                const p2 = paired[i + 1];
+                if (!p1 || !p2 || p1.isBye || p2.isBye) continue;
+                const match = Matches.createMatch(p1, p2, roundIndex, (matchCount % State.current.numCourts) + 1);
+                match.isConsolation = true;
+                match.consolationTier = tierNum;
+                match.consolationRound = 0;
+                match.roundName = label;
+                State.current.matches.push(match);
+                matchCount++;
+            }
+
+            State.current.consolationBrackets.push({
+                tier: tierNum,
+                label,
+                totalRounds,
+                currentRound: 0
+            });
+        });
+
+        return true;
+    },
+
+    advanceConsolationRound(tier) {
+        const tierInfo = State.current.consolationBrackets.find(b => b.tier === tier);
+        if (!tierInfo) return false;
+
+        const currentRound = tierInfo.currentRound;
+        const currentMatches = State.current.matches.filter(m =>
+            m.isConsolation && m.consolationTier === tier &&
+            m.consolationRound === currentRound && !m.isConsolationThirdPlace
+        );
+
+        if (currentMatches.length === 0 || !currentMatches.every(m => m.completed)) return false;
+
+        const winners = [];
+        const losers = [];
+        currentMatches.forEach(match => {
+            const p1Sets = (match.sets || []).filter(s => s.score1 > s.score2).length;
+            const p2Sets = (match.sets || []).filter(s => s.score2 > s.score1).length;
+            if (p1Sets > p2Sets) { winners.push(match.player1); losers.push(match.player2); }
+            else { winners.push(match.player2); losers.push(match.player1); }
+        });
+
+        if (winners.length < 2) return true; // finále této skupiny je hotové
+
+        const nextRound = currentRound + 1;
+        const roundIndex = State.current.rounds.length;
+        State.current.rounds.push(roundIndex);
+
+        for (let i = 0; i < winners.length; i += 2) {
+            if (winners[i + 1]) {
+                const match = Matches.createMatch(
+                    winners[i], winners[i + 1],
+                    roundIndex, ((i / 2) % State.current.numCourts) + 1
+                );
+                match.isConsolation = true;
+                match.consolationTier = tier;
+                match.consolationRound = nextRound;
+                match.roundName = tierInfo.label;
+                State.current.matches.push(match);
+            }
+        }
+
+        // Zápas o 3. místo v rámci consolation: ze semifinále (nextRound === totalRounds - 1)
+        if (losers.length === 2 && nextRound === tierInfo.totalRounds - 1) {
+            const thirdMatch = Matches.createMatch(
+                losers[0], losers[1],
+                roundIndex, (winners.length / 2 % State.current.numCourts) + 1
+            );
+            thirdMatch.isConsolation = true;
+            thirdMatch.consolationTier = tier;
+            thirdMatch.consolationRound = nextRound;
+            thirdMatch.roundName = tierInfo.label;
+            thirdMatch.isConsolationThirdPlace = true;
+            State.current.matches.push(thirdMatch);
+        }
+
+        tierInfo.currentRound = nextRound;
+        return true;
+    },
+
+    renderConsolationBrackets() {
+        const brackets = State.current.consolationBrackets;
+        if (!brackets || brackets.length === 0) return '';
+
+        return brackets.map(tierInfo => {
+            const { tier, label, totalRounds, currentRound } = tierInfo;
+
+            // Seskup zápasy podle kola
+            const rounds = [];
+            for (let r = 0; r <= currentRound; r++) {
+                const roundMatches = State.current.matches.filter(m =>
+                    m.isConsolation && m.consolationTier === tier &&
+                    m.consolationRound === r && !m.isConsolationThirdPlace
+                );
+                if (roundMatches.length > 0) {
+                    const roundLabel = r === totalRounds - 1 ? 'Finále' :
+                                       r === totalRounds - 2 ? 'Semifinále' :
+                                       `Kolo ${r + 1}`;
+                    rounds.push({ r, roundLabel, matches: roundMatches });
+                }
+            }
+
+            const thirdMatch = State.current.matches.find(m =>
+                m.isConsolation && m.consolationTier === tier && m.isConsolationThirdPlace
+            );
+
+            const allCurrentDone = State.current.matches
+                .filter(m => m.isConsolation && m.consolationTier === tier && m.consolationRound === currentRound)
+                .every(m => m.completed);
+            const canAdvance = allCurrentDone && currentRound < totalRounds - 1;
+
+            return `
+                <div class="card">
+                    <h2>🏅 ${label}</h2>
+                    <div class="bracket-container">
+                        <div class="bracket">
+                            ${rounds.map(({ roundLabel, matches }) => `
+                                <div class="bracket-round">
+                                    <div class="bracket-round-title">${roundLabel}</div>
+                                    ${matches.map(m => this.renderBracketMatch(m)).join('')}
+                                </div>
+                            `).join('')}
+                            ${thirdMatch ? `
+                                <div class="bracket-round">
+                                    <div class="bracket-round-title">🥉 O 3. místo (v této skupině)</div>
+                                    ${this.renderBracketMatch(thirdMatch)}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    ${canAdvance ? `
+                        <div style="margin-top:12px;">
+                            <button class="btn btn-secondary" onclick="advanceConsolationRound(${tier})">
+                                ▶ Generovat další kolo (${label})
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    },
+
     generateFromGroups() {
         if (!State.current.groups || State.current.groups.length === 0) {
             Utils.showNotification('Nejsou vytvořeny žádné skupiny!', 'error');
@@ -290,10 +494,16 @@ const Playoff = {
         }
         
         State.current.rounds.push(nextRound);
-        
+
+        // Consolation brackets pro nepostupivší hráče
+        const advancersPerGroup = qualifiers.length / State.current.groups.length;
+        if (State.current.consolationBracket) {
+            this.generateConsolationBrackets(advancersPerGroup);
+        }
+
         State.save();
         Utils.showNotification(`Playoff pavouk vygenerován! ${paired.length} hráčů postoupilo.`);
-        
+
         return true;
     },
 

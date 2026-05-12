@@ -28,6 +28,8 @@ const State = {
         playoffBracket: null,
         playoffType: 'cross',
         thirdPlaceMatch: false,
+        consolationBracket: false,
+        consolationBrackets: [],
         history: []
     },
 
@@ -259,6 +261,8 @@ const State = {
                 playoffBracket: null,
                 playoffType: 'cross',
                 thirdPlaceMatch: false,
+                consolationBracket: false,
+                consolationBrackets: [],
                 history: this.current.history
             };
             localStorage.removeItem('tournamentData');
