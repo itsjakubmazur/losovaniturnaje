@@ -463,6 +463,30 @@ function advancePlayoffRound() {
     }
 }
 
+function advanceConsolationRound(tier) {
+    const tierInfo = State.current.consolationBrackets.find(b => b.tier === tier);
+    if (!tierInfo) {
+        Utils.showNotification('Tato skupina neexistuje', 'error');
+        return;
+    }
+
+    const currentMatches = State.current.matches.filter(m =>
+        m.isConsolation && m.consolationTier === tier && m.consolationRound === tierInfo.currentRound
+    );
+
+    if (!currentMatches.every(m => m.completed)) {
+        Utils.showNotification('Dokončete všechny zápasy tohoto kola!', 'error');
+        return;
+    }
+
+    const success = Playoff.advanceConsolationRound(tier);
+    if (success) {
+        State.save();
+        UI.render();
+        Utils.showNotification(`Další kolo skupiny ${tierInfo.label} vygenerováno`);
+    }
+}
+
 function scrollToMatch(idx) {
     // Scroll to match detail in the list
     setTimeout(() => {

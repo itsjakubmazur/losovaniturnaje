@@ -199,6 +199,13 @@ const UI = {
                         </label>
                         <small>Poražení ze semifinále odehrají zápas o bronz</small>
                     </div>
+                    <div class="input-group">
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                            <input type="checkbox" id="consolation-bracket" ${State.current.consolationBracket ? 'checked' : ''} style="width:auto;margin:0;">
+                            Hrát o pořadí nepostupivších
+                        </label>
+                        <small>Hráči/páry, kteří nepostoupí do playoff, odehrají vlastní mini-pavouk podle skupinového pořadí</small>
+                    </div>
                     ` : ''}
                 ` : ''}
                 ${State.current.system === 'knockout' ? `
@@ -487,6 +494,10 @@ const UI = {
                         : Playoff.renderBracket())
                     : ''}
 
+                ${State.current.consolationBrackets && State.current.consolationBrackets.length > 0
+                    ? Playoff.renderConsolationBrackets()
+                    : ''}
+
                 ${State.current.system === 'groups' && !State.current.playoffBracket ? this.renderGroupStandings() : ''}
 
                 ${queue.length > 0 ? `
@@ -640,6 +651,10 @@ const UI = {
                     : Playoff.renderBracket())
                 : '';
 
+            const consolationHTML = State.current.consolationBrackets && State.current.consolationBrackets.length > 0
+                ? Playoff.renderConsolationBrackets()
+                : '';
+
             return `
                 <div class="card">
                     <h2>🏆 ${i18n.t('step.results')}</h2>
@@ -654,6 +669,7 @@ const UI = {
                     ${statsGrid}
                     ${this.renderGroupStandings()}
                     ${bracketHTML}
+                    ${consolationHTML}
                     ${buttons}
                 </div>
             `;
@@ -1179,6 +1195,14 @@ const UI = {
         if (thirdPlaceCheckbox) {
             thirdPlaceCheckbox.addEventListener('change', e => {
                 State.current.thirdPlaceMatch = e.target.checked;
+                State.save();
+            });
+        }
+
+        const consolationCheckbox = document.getElementById('consolation-bracket');
+        if (consolationCheckbox) {
+            consolationCheckbox.addEventListener('change', e => {
+                State.current.consolationBracket = e.target.checked;
                 State.save();
             });
         }
