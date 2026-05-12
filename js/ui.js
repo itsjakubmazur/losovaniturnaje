@@ -192,19 +192,16 @@ const UI = {
                         </div>
                     </div>
                     ${(State.current.playoffType || 'cross') === 'cross' ? `
-                    <div class="input-group">
-                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-                            <input type="checkbox" id="third-place-match" ${State.current.thirdPlaceMatch ? 'checked' : ''} style="width:auto;margin:0;">
-                            Zápas o 3. místo po semifinále
+                    <div class="input-group" style="background:var(--bg);border:2px solid var(--primary);border-radius:10px;padding:14px 16px;">
+                        <label style="font-weight:600;color:var(--primary);margin-bottom:10px;display:block;">Možnosti playoff</label>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:10px;">
+                            <input type="checkbox" id="consolation-bracket" ${State.current.consolationBracket ? 'checked' : ''} style="width:auto;margin:0;accent-color:var(--primary);transform:scale(1.3);">
+                            <span><strong>Hrát o pořadí nepostupivších</strong><br><small style="color:var(--text-muted);">Hráči, kteří nepostoupí do playoff, odehrají vlastní mini-pavouk (3. místa spolu, 4. místa spolu atd.)</small></span>
                         </label>
-                        <small>Poražení ze semifinále odehrají zápas o bronz</small>
-                    </div>
-                    <div class="input-group">
                         <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-                            <input type="checkbox" id="consolation-bracket" ${State.current.consolationBracket ? 'checked' : ''} style="width:auto;margin:0;">
-                            Hrát o pořadí nepostupivších
+                            <input type="checkbox" id="third-place-match" ${State.current.thirdPlaceMatch ? 'checked' : ''} style="width:auto;margin:0;accent-color:var(--primary);transform:scale(1.3);">
+                            <span><strong>Zápas o 3. místo</strong><br><small style="color:var(--text-muted);">Poražení ze semifinále odehrají zápas o bronz</small></span>
                         </label>
-                        <small>Hráči/páry, kteří nepostoupí do playoff, odehrají vlastní mini-pavouk podle skupinového pořadí</small>
                     </div>
                     ` : ''}
                 ` : ''}
