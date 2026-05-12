@@ -30,6 +30,8 @@ const State = {
         thirdPlaceMatch: false,
         consolationBracket: false,
         consolationBrackets: [],
+        knockoutLosers: {},
+        knockoutLosersBrackets: [],
         history: []
     },
 
@@ -263,6 +265,8 @@ const State = {
                 thirdPlaceMatch: false,
                 consolationBracket: false,
                 consolationBrackets: [],
+                knockoutLosers: {},
+                knockoutLosersBrackets: [],
                 history: this.current.history
             };
             localStorage.removeItem('tournamentData');

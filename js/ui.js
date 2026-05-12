@@ -367,10 +367,16 @@ const UI = {
                 </div>
 
                 ${State.current.groups.length > 0 ? `
+                    ${State.current.matches.length === 0 ? `
+                    <div style="margin: 10px 0 15px; padding: 10px 14px; background: var(--bg); border-radius: 8px; font-size: 0.88em; color: var(--text-muted); border-left: 3px solid var(--primary);">
+                        💡 <strong>Tip:</strong> Před vygenerováním zápasů můžete hráče přesouvat mezi skupinami tlačítkem ↔ vedle jejich jména.
+                    </div>
+                    ` : ''}
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0;">
                         ${State.current.groups.map((group, i) => {
                             const letter = String.fromCharCode(65 + i);
                             const color = UI.getGroupColor(letter);
+                            const canMove = State.current.matches.length === 0;
                             return `
                             <div style="background: var(--bg); padding: 0; border-radius: 12px; border-top: 4px solid ${color}; overflow: hidden;">
                                 <div style="background: ${color}; color: white; padding: 10px 15px; font-weight: bold; font-size: 0.95em;">
@@ -380,8 +386,9 @@ const UI = {
                                 ${group.map((p, pi) => `
                                     <div style="padding: 8px 10px; margin: 5px 0; background: var(--card); border-radius: 6px; display: flex; align-items: center; gap: 8px;">
                                         <div style="width: 24px; height: 24px; border-radius: 50%; background: ${color}; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75em; font-weight: bold; flex-shrink: 0;">${Utils.getInitials(p)}</div>
-                                        <span>${Utils.getPlayerDisplayName(p)}</span>
-                                        ${p.seed ? `<span style="margin-left:auto;font-size:0.75em;color:var(--text-muted);">💪 ${p.seed}</span>` : ''}
+                                        <span style="flex:1;">${Utils.getPlayerDisplayName(p)}</span>
+                                        ${p.seed ? `<span style="font-size:0.75em;color:var(--text-muted);">💪 ${p.seed}</span>` : ''}
+                                        ${canMove ? `<button onclick="openMovePlayerModal(${i}, ${pi})" title="Přesunout do jiné skupiny" style="background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:2px 6px;font-size:0.8em;color:var(--text-muted);">↔</button>` : ''}
                                     </div>
                                 `).join('')}
                                 </div>
@@ -497,6 +504,36 @@ const UI = {
                 ${State.current.consolationBrackets && State.current.consolationBrackets.length > 0
                     ? Playoff.renderConsolationBrackets()
                     : ''}
+
+                ${State.current.knockoutLosersBrackets && State.current.knockoutLosersBrackets.length > 0
+                    ? Playoff.renderLosersBrackets()
+                    : ''}
+
+                ${(() => {
+                    if (State.current.system !== 'knockout' || !State.current.playoffBracket || !State.current.knockoutLosers) return '';
+                    const generatedRounds = (State.current.knockoutLosersBrackets || []).map(b => b.fromRound);
+                    const pendingRounds = Object.keys(State.current.knockoutLosers)
+                        .map(Number)
+                        .filter(r => !generatedRounds.includes(r));
+                    if (pendingRounds.length === 0) return '';
+                    return `<div class="card">
+                        <h3 style="margin:0 0 12px;">🥈 Zápasy o pořadí poražených</h3>
+                        <p style="color:var(--text-muted);margin:0 0 15px;font-size:0.9em;">
+                            Můžete vygenerovat zápasy pro poražené z jednotlivých kol. Rozhodněte se kdykoliv v průběhu turnaje.
+                        </p>
+                        <div class="button-group" style="flex-wrap:wrap;">
+                            ${pendingRounds.sort((a,b)=>a-b).map(r => {
+                                const totalRounds = State.current.playoffBracket.totalRounds;
+                                const posEnd = Math.pow(2, totalRounds - r);
+                                const posStart = Math.pow(2, totalRounds - r - 1) + 1;
+                                const lbl = posStart === posEnd ? `O ${posStart}. místo` : `O ${posStart}.-${posEnd}. místo`;
+                                return `<button class="btn btn-secondary" onclick="generateLosersBracketRound(${r})">
+                                    🥈 Generovat ${lbl}
+                                </button>`;
+                            }).join('')}
+                        </div>
+                    </div>`;
+                })()}
 
                 ${State.current.system === 'groups' && !State.current.playoffBracket ? this.renderGroupStandings() : ''}
 

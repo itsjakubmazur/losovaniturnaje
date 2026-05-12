@@ -552,6 +552,12 @@ const Playoff = {
 
         console.log('Winners:', winners);
 
+        // Store losers for optional losers bracket (knockout system only)
+        if (State.current.playoffBracket.isKnockout === true && losers.length >= 2) {
+            if (!State.current.knockoutLosers) State.current.knockoutLosers = {};
+            State.current.knockoutLosers[round] = losers;
+        }
+
         if (winners.length < 2) {
             console.log('Tournament finished! Winner:', winners[0]);
             return true; // Tournament finished!
@@ -599,11 +605,179 @@ const Playoff = {
             State.current.matches.push(thirdMatch);
             console.log('Created 3rd place match:', thirdMatch);
         }
-        
+
         State.current.playoffBracket.currentRound = nextRound;
         console.log('Updated playoffBracket:', State.current.playoffBracket);
-        
+
         return true;
+    },
+
+    // Generate the first round of a losers bracket for a given knockout round
+    generateLosersBracketRound(fromRound) {
+        if (!State.current.knockoutLosers) State.current.knockoutLosers = {};
+        if (!State.current.knockoutLosersBrackets) State.current.knockoutLosersBrackets = [];
+
+        const losers = State.current.knockoutLosers[fromRound];
+        if (!losers || losers.length < 2) return false;
+
+        // Calculate placement positions
+        const totalRounds = State.current.playoffBracket.totalRounds;
+        const posEnd = Math.pow(2, totalRounds - fromRound);
+        const posStart = Math.pow(2, totalRounds - fromRound - 1) + 1;
+        const label = posStart === posEnd
+            ? `O ${posStart}. místo`
+            : `O ${posStart}.-${posEnd}. místo`;
+
+        const sorted = [...losers].sort((a, b) => (b.seed || 5) - (a.seed || 5));
+        const n = Utils.getNextPowerOfTwo(sorted.length);
+        while (sorted.length < n) sorted.push({ name: 'BYE', isBye: true });
+
+        const bracketTotalRounds = Math.log2(n);
+        const paired = this._pairTier(sorted);
+
+        const roundIndex = State.current.rounds.length;
+        State.current.rounds.push(roundIndex);
+
+        let matchCount = 0;
+        for (let i = 0; i < paired.length; i += 2) {
+            const p1 = paired[i];
+            const p2 = paired[i + 1];
+            if (!p1 || !p2 || p1.isBye || p2.isBye) continue;
+            const match = Matches.createMatch(p1, p2, roundIndex, (matchCount % State.current.numCourts) + 1);
+            match.isLosersBracket = true;
+            match.losersBracketFromRound = fromRound;
+            match.losersBracketRound = 0;
+            match.roundName = label;
+            State.current.matches.push(match);
+            matchCount++;
+        }
+
+        State.current.knockoutLosersBrackets.push({
+            fromRound,
+            label,
+            posStart,
+            posEnd,
+            totalRounds: bracketTotalRounds,
+            currentRound: 0
+        });
+
+        return true;
+    },
+
+    // Advance to the next round of a losers bracket
+    advanceLosersBracketRound(fromRound) {
+        const bracketInfo = State.current.knockoutLosersBrackets.find(b => b.fromRound === fromRound);
+        if (!bracketInfo) return false;
+
+        const currentRound = bracketInfo.currentRound;
+        const currentMatches = State.current.matches.filter(m =>
+            m.isLosersBracket && m.losersBracketFromRound === fromRound &&
+            m.losersBracketRound === currentRound && !m.isLosersBracketThirdPlace
+        );
+
+        if (currentMatches.length === 0 || !currentMatches.every(m => m.completed)) return false;
+
+        const winners = [];
+        const bracketLosers = [];
+        currentMatches.forEach(match => {
+            const p1Sets = (match.sets || []).filter(s => s.score1 > s.score2).length;
+            const p2Sets = (match.sets || []).filter(s => s.score2 > s.score1).length;
+            if (p1Sets > p2Sets) { winners.push(match.player1); bracketLosers.push(match.player2); }
+            else { winners.push(match.player2); bracketLosers.push(match.player1); }
+        });
+
+        if (winners.length < 2) return true;
+
+        const nextRound = currentRound + 1;
+        const roundIndex = State.current.rounds.length;
+        State.current.rounds.push(roundIndex);
+
+        for (let i = 0; i < winners.length; i += 2) {
+            if (winners[i + 1]) {
+                const match = Matches.createMatch(winners[i], winners[i + 1], roundIndex, ((i / 2) % State.current.numCourts) + 1);
+                match.isLosersBracket = true;
+                match.losersBracketFromRound = fromRound;
+                match.losersBracketRound = nextRound;
+                match.roundName = bracketInfo.label;
+                State.current.matches.push(match);
+            }
+        }
+
+        // Third place within losers bracket (at semi → final transition)
+        if (bracketLosers.length === 2 && nextRound === bracketInfo.totalRounds - 1) {
+            const thirdMatch = Matches.createMatch(bracketLosers[0], bracketLosers[1], roundIndex, (winners.length / 2 % State.current.numCourts) + 1);
+            thirdMatch.isLosersBracket = true;
+            thirdMatch.losersBracketFromRound = fromRound;
+            thirdMatch.losersBracketRound = nextRound;
+            thirdMatch.roundName = bracketInfo.label;
+            thirdMatch.isLosersBracketThirdPlace = true;
+            State.current.matches.push(thirdMatch);
+        }
+
+        bracketInfo.currentRound = nextRound;
+        return true;
+    },
+
+    // Render all losers brackets (knockout system)
+    renderLosersBrackets() {
+        const brackets = State.current.knockoutLosersBrackets;
+        if (!brackets || brackets.length === 0) return '';
+
+        return brackets.map(bracketInfo => {
+            const { fromRound, label, totalRounds, currentRound } = bracketInfo;
+
+            const rounds = [];
+            for (let r = 0; r <= currentRound; r++) {
+                const roundMatches = State.current.matches.filter(m =>
+                    m.isLosersBracket && m.losersBracketFromRound === fromRound &&
+                    m.losersBracketRound === r && !m.isLosersBracketThirdPlace
+                );
+                if (roundMatches.length > 0) {
+                    const roundLabel = r === totalRounds - 1 ? 'Finále' :
+                                       r === totalRounds - 2 ? 'Semifinále' :
+                                       `Kolo ${r + 1}`;
+                    rounds.push({ r, roundLabel, matches: roundMatches });
+                }
+            }
+
+            const thirdMatch = State.current.matches.find(m =>
+                m.isLosersBracket && m.losersBracketFromRound === fromRound && m.isLosersBracketThirdPlace
+            );
+
+            const allCurrentDone = State.current.matches
+                .filter(m => m.isLosersBracket && m.losersBracketFromRound === fromRound && m.losersBracketRound === currentRound)
+                .every(m => m.completed);
+            const canAdvance = allCurrentDone && currentRound < totalRounds - 1;
+
+            return `
+                <div class="card">
+                    <h2>🥈 ${label}</h2>
+                    <div class="bracket-container">
+                        <div class="bracket">
+                            ${rounds.map(({ roundLabel, matches }) => `
+                                <div class="bracket-round">
+                                    <div class="bracket-round-title">${roundLabel}</div>
+                                    ${matches.map(m => this.renderBracketMatch(m)).join('')}
+                                </div>
+                            `).join('')}
+                            ${thirdMatch ? `
+                                <div class="bracket-round">
+                                    <div class="bracket-round-title">🥉 O 3. místo (v tomto pavouku)</div>
+                                    ${this.renderBracketMatch(thirdMatch)}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    ${canAdvance ? `
+                        <div style="margin-top:12px;">
+                            <button class="btn btn-secondary" onclick="advanceLosersBracketRound(${fromRound})">
+                                ▶ Generovat další kolo (${label})
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
     },
 
     // Render visual bracket

@@ -264,7 +264,53 @@ function autoFillParticipants() {
     Utils.showNotification('Demo účastníci přidáni');
 }
 
-// Draw functions
+// Draw functions – move player between groups
+function openMovePlayerModal(fromGroupIdx, playerIdx) {
+    const groups = State.current.groups;
+    const player = groups[fromGroupIdx][playerIdx];
+    const playerName = Utils.getPlayerDisplayName(player);
+
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.id = 'move-player-modal';
+
+    const otherGroups = groups.map((g, i) => ({ i, letter: String.fromCharCode(65 + i) }))
+        .filter(g => g.i !== fromGroupIdx);
+
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>↔ Přesunout hráče</h3>
+                <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+            </div>
+            <p style="margin:0 0 15px;"><strong>${playerName}</strong> je ve skupině <strong>${String.fromCharCode(65 + fromGroupIdx)}</strong>.</p>
+            <p style="color:var(--text-muted);margin:0 0 15px;">Vyberte cílovou skupinu:</p>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                ${otherGroups.map(g => `
+                    <button class="btn btn-secondary" onclick="movePlayerToGroup(${fromGroupIdx}, ${playerIdx}, ${g.i}); document.getElementById('move-player-modal').remove();">
+                        Skupina ${g.letter} (${groups[g.i].length} hráčů)
+                    </button>
+                `).join('')}
+            </div>
+            <div style="margin-top:15px;">
+                <button class="btn btn-outline" onclick="this.closest('.modal').remove()">Zrušit</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function movePlayerToGroup(fromGroupIdx, playerIdx, toGroupIdx) {
+    const groups = State.current.groups;
+    const player = groups[fromGroupIdx].splice(playerIdx, 1)[0];
+    groups[toGroupIdx].push(player);
+    State.save();
+    UI.render();
+    const fromLetter = String.fromCharCode(65 + fromGroupIdx);
+    const toLetter = String.fromCharCode(65 + toGroupIdx);
+    Utils.showNotification(`${Utils.getPlayerDisplayName(player)} přesunut ze skupiny ${fromLetter} do skupiny ${toLetter}`);
+}
+
 function performDraw() {
     if (State.current.system === 'groups') {
         const filteredParticipants = Utils.filterParticipantsByDiscipline(State.current.participants);
@@ -460,6 +506,37 @@ function advancePlayoffRound() {
         } else {
             Utils.showNotification('Další fáze vygenerována');
         }
+    }
+}
+
+function generateLosersBracketRound(fromRound) {
+    const success = Playoff.generateLosersBracketRound(fromRound);
+    if (success) {
+        State.save();
+        UI.render();
+        Utils.showNotification('Pavouk poražených vygenerován!');
+    } else {
+        Utils.showNotification('Nelze vygenerovat pavouk poražených', 'error');
+    }
+}
+
+function advanceLosersBracketRound(fromRound) {
+    const bracketInfo = State.current.knockoutLosersBrackets.find(b => b.fromRound === fromRound);
+    if (!bracketInfo) { Utils.showNotification('Pavouk neexistuje', 'error'); return; }
+
+    const currentMatches = State.current.matches.filter(m =>
+        m.isLosersBracket && m.losersBracketFromRound === fromRound && m.losersBracketRound === bracketInfo.currentRound
+    );
+    if (!currentMatches.every(m => m.completed)) {
+        Utils.showNotification('Dokončete všechny zápasy aktuálního kola!', 'error');
+        return;
+    }
+
+    const success = Playoff.advanceLosersBracketRound(fromRound);
+    if (success) {
+        State.save();
+        UI.render();
+        Utils.showNotification(`Další kolo (${bracketInfo.label}) vygenerováno`);
     }
 }
 
