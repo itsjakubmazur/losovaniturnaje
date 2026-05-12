@@ -19,6 +19,7 @@ const Stats = {
                 const name = p.name || p;
                 groupStandings[groupLetter][name] = {
                     player: name,
+                    playerRef: p,
                     played: 0,
                     wins: 0,
                     draws: 0,
