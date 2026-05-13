@@ -208,6 +208,8 @@ const Playoff = {
 
         State.current.consolationBrackets = [];
 
+        const isPow2 = n => n >= 2 && (n & (n - 1)) === 0;
+
         Object.keys(tiers).sort((a, b) => parseInt(a) - parseInt(b)).forEach(pos => {
             const tierNum = parseInt(pos);
             const tierPlayers = tiers[pos];
@@ -217,39 +219,68 @@ const Playoff = {
             const endPos = startPos + tierPlayers.length - 1;
             const label = `O ${startPos}.-${endPos}. místo`;
 
-            // Sort strongest first, pad to next power of 2 with BYEs
             const sorted = [...tierPlayers].sort((a, b) =>
                 (b.points || 0) - (a.points || 0) || (b.wins || 0) - (a.wins || 0)
             );
-            const n = Utils.getNextPowerOfTwo(sorted.length);
-            while (sorted.length < n) sorted.push({ name: 'BYE', isBye: true });
 
-            const totalRounds = Math.log2(n);
-            const paired = this._pairTier(sorted);
+            if (isPow2(sorted.length)) {
+                // Bracket format – počet hráčů je mocnina 2, pavouk je férový
+                const n = sorted.length;
+                const totalRounds = Math.log2(n);
+                const paired = this._pairTier(sorted);
 
-            const roundIndex = State.current.rounds.length;
-            State.current.rounds.push(roundIndex);
+                const roundIndex = State.current.rounds.length;
+                State.current.rounds.push(roundIndex);
 
-            let matchCount = 0;
-            for (let i = 0; i < paired.length; i += 2) {
-                const p1 = paired[i];
-                const p2 = paired[i + 1];
-                if (!p1 || !p2 || p1.isBye || p2.isBye) continue;
-                const match = Matches.createMatch(p1, p2, roundIndex, (matchCount % State.current.numCourts) + 1);
-                match.isConsolation = true;
-                match.consolationTier = tierNum;
-                match.consolationRound = 0;
-                match.roundName = label;
-                State.current.matches.push(match);
-                matchCount++;
+                let matchCount = 0;
+                for (let i = 0; i < paired.length; i += 2) {
+                    const p1 = paired[i];
+                    const p2 = paired[i + 1];
+                    if (!p1 || !p2 || p1.isBye || p2.isBye) continue;
+                    const match = Matches.createMatch(p1, p2, roundIndex, (matchCount % State.current.numCourts) + 1);
+                    match.isConsolation = true;
+                    match.consolationTier = tierNum;
+                    match.consolationRound = 0;
+                    match.roundName = label;
+                    State.current.matches.push(match);
+                    matchCount++;
+                }
+
+                State.current.consolationBrackets.push({
+                    tier: tierNum, label, type: 'bracket', totalRounds, currentRound: 0
+                });
+            } else {
+                // Round-robin – lichý nebo jiný počet, každý s každým je férovější
+                const players = [...sorted];
+                if (players.length % 2 === 1) players.push({ name: 'BYE', isBye: true });
+                const n = players.length;
+
+                for (let rrRound = 0; rrRound < n - 1; rrRound++) {
+                    const roundIndex = State.current.rounds.length;
+                    State.current.rounds.push(roundIndex);
+                    let matchCount = 0;
+                    for (let match = 0; match < n / 2; match++) {
+                        const home = (rrRound + match) % (n - 1);
+                        const away = (n - 1 - match + rrRound) % (n - 1);
+                        const p1 = match === 0 ? players[n - 1] : players[home];
+                        const p2 = players[away];
+                        if (!p1.isBye && !p2.isBye) {
+                            const m = Matches.createMatch(p1, p2, roundIndex, (matchCount % State.current.numCourts) + 1);
+                            m.isConsolation = true;
+                            m.consolationTier = tierNum;
+                            m.consolationRound = rrRound;
+                            m.roundName = label;
+                            State.current.matches.push(m);
+                            matchCount++;
+                        }
+                    }
+                }
+
+                State.current.consolationBrackets.push({
+                    tier: tierNum, label, type: 'roundrobin',
+                    totalRounds: n - 1, currentRound: n - 2
+                });
             }
-
-            State.current.consolationBrackets.push({
-                tier: tierNum,
-                label,
-                totalRounds,
-                currentRound: 0
-            });
         });
 
         return true;
@@ -319,9 +350,9 @@ const Playoff = {
         if (!brackets || brackets.length === 0) return '';
 
         return brackets.map(tierInfo => {
-            const { tier, label, totalRounds, currentRound } = tierInfo;
+            const { tier, label, type, totalRounds, currentRound } = tierInfo;
+            const isRoundRobin = type === 'roundrobin';
 
-            // Seskup zápasy podle kola
             const rounds = [];
             for (let r = 0; r <= currentRound; r++) {
                 const roundMatches = State.current.matches.filter(m =>
@@ -329,25 +360,26 @@ const Playoff = {
                     m.consolationRound === r && !m.isConsolationThirdPlace
                 );
                 if (roundMatches.length > 0) {
-                    const roundLabel = r === totalRounds - 1 ? 'Finále' :
+                    const roundLabel = isRoundRobin ? `Kolo ${r + 1}` :
+                                       r === totalRounds - 1 ? 'Finále' :
                                        r === totalRounds - 2 ? 'Semifinále' :
                                        `Kolo ${r + 1}`;
                     rounds.push({ r, roundLabel, matches: roundMatches });
                 }
             }
 
-            const thirdMatch = State.current.matches.find(m =>
+            const thirdMatch = !isRoundRobin && State.current.matches.find(m =>
                 m.isConsolation && m.consolationTier === tier && m.isConsolationThirdPlace
             );
 
             const allCurrentDone = State.current.matches
                 .filter(m => m.isConsolation && m.consolationTier === tier && m.consolationRound === currentRound)
                 .every(m => m.completed);
-            const canAdvance = allCurrentDone && currentRound < totalRounds - 1;
+            const canAdvance = !isRoundRobin && allCurrentDone && currentRound < totalRounds - 1;
 
             return `
                 <div class="card">
-                    <h2>🏅 ${label}</h2>
+                    <h2>🏅 ${label}${isRoundRobin ? ' (každý s každým)' : ''}</h2>
                     <div class="bracket-container">
                         <div class="bracket">
                             ${rounds.map(({ roundLabel, matches }) => `
@@ -552,8 +584,8 @@ const Playoff = {
 
         console.log('Winners:', winners);
 
-        // Store losers for optional losers bracket (knockout system only)
-        if (State.current.playoffBracket.isKnockout === true && losers.length >= 2) {
+        // Store losers for optional losers bracket
+        if (losers.length >= 2) {
             if (!State.current.knockoutLosers) State.current.knockoutLosers = {};
             State.current.knockoutLosers[round] = losers;
         }
@@ -628,38 +660,67 @@ const Playoff = {
             ? `O ${posStart}. místo`
             : `O ${posStart}.-${posEnd}. místo`;
 
+        const isPow2 = n => n >= 2 && (n & (n - 1)) === 0;
         const sorted = [...losers].sort((a, b) => (b.seed || 5) - (a.seed || 5));
-        const n = Utils.getNextPowerOfTwo(sorted.length);
-        while (sorted.length < n) sorted.push({ name: 'BYE', isBye: true });
 
-        const bracketTotalRounds = Math.log2(n);
-        const paired = this._pairTier(sorted);
+        if (isPow2(sorted.length)) {
+            const n = sorted.length;
+            const bracketTotalRounds = Math.log2(n);
+            const paired = this._pairTier(sorted);
 
-        const roundIndex = State.current.rounds.length;
-        State.current.rounds.push(roundIndex);
+            const roundIndex = State.current.rounds.length;
+            State.current.rounds.push(roundIndex);
 
-        let matchCount = 0;
-        for (let i = 0; i < paired.length; i += 2) {
-            const p1 = paired[i];
-            const p2 = paired[i + 1];
-            if (!p1 || !p2 || p1.isBye || p2.isBye) continue;
-            const match = Matches.createMatch(p1, p2, roundIndex, (matchCount % State.current.numCourts) + 1);
-            match.isLosersBracket = true;
-            match.losersBracketFromRound = fromRound;
-            match.losersBracketRound = 0;
-            match.roundName = label;
-            State.current.matches.push(match);
-            matchCount++;
+            let matchCount = 0;
+            for (let i = 0; i < paired.length; i += 2) {
+                const p1 = paired[i];
+                const p2 = paired[i + 1];
+                if (!p1 || !p2 || p1.isBye || p2.isBye) continue;
+                const match = Matches.createMatch(p1, p2, roundIndex, (matchCount % State.current.numCourts) + 1);
+                match.isLosersBracket = true;
+                match.losersBracketFromRound = fromRound;
+                match.losersBracketRound = 0;
+                match.roundName = label;
+                State.current.matches.push(match);
+                matchCount++;
+            }
+
+            State.current.knockoutLosersBrackets.push({
+                fromRound, label, posStart, posEnd,
+                type: 'bracket', totalRounds: bracketTotalRounds, currentRound: 0
+            });
+        } else {
+            // Round-robin pro lichý nebo nepravidelný počet poražených
+            const players = [...sorted];
+            if (players.length % 2 === 1) players.push({ name: 'BYE', isBye: true });
+            const n = players.length;
+
+            for (let rrRound = 0; rrRound < n - 1; rrRound++) {
+                const roundIndex = State.current.rounds.length;
+                State.current.rounds.push(roundIndex);
+                let matchCount = 0;
+                for (let match = 0; match < n / 2; match++) {
+                    const home = (rrRound + match) % (n - 1);
+                    const away = (n - 1 - match + rrRound) % (n - 1);
+                    const p1 = match === 0 ? players[n - 1] : players[home];
+                    const p2 = players[away];
+                    if (!p1.isBye && !p2.isBye) {
+                        const m = Matches.createMatch(p1, p2, roundIndex, (matchCount % State.current.numCourts) + 1);
+                        m.isLosersBracket = true;
+                        m.losersBracketFromRound = fromRound;
+                        m.losersBracketRound = rrRound;
+                        m.roundName = label;
+                        State.current.matches.push(m);
+                        matchCount++;
+                    }
+                }
+            }
+
+            State.current.knockoutLosersBrackets.push({
+                fromRound, label, posStart, posEnd,
+                type: 'roundrobin', totalRounds: n - 1, currentRound: n - 2
+            });
         }
-
-        State.current.knockoutLosersBrackets.push({
-            fromRound,
-            label,
-            posStart,
-            posEnd,
-            totalRounds: bracketTotalRounds,
-            currentRound: 0
-        });
 
         return true;
     },
@@ -724,7 +785,8 @@ const Playoff = {
         if (!brackets || brackets.length === 0) return '';
 
         return brackets.map(bracketInfo => {
-            const { fromRound, label, totalRounds, currentRound } = bracketInfo;
+            const { fromRound, label, type, totalRounds, currentRound } = bracketInfo;
+            const isRoundRobin = type === 'roundrobin';
 
             const rounds = [];
             for (let r = 0; r <= currentRound; r++) {
@@ -733,25 +795,26 @@ const Playoff = {
                     m.losersBracketRound === r && !m.isLosersBracketThirdPlace
                 );
                 if (roundMatches.length > 0) {
-                    const roundLabel = r === totalRounds - 1 ? 'Finále' :
+                    const roundLabel = isRoundRobin ? `Kolo ${r + 1}` :
+                                       r === totalRounds - 1 ? 'Finále' :
                                        r === totalRounds - 2 ? 'Semifinále' :
                                        `Kolo ${r + 1}`;
                     rounds.push({ r, roundLabel, matches: roundMatches });
                 }
             }
 
-            const thirdMatch = State.current.matches.find(m =>
+            const thirdMatch = !isRoundRobin && State.current.matches.find(m =>
                 m.isLosersBracket && m.losersBracketFromRound === fromRound && m.isLosersBracketThirdPlace
             );
 
             const allCurrentDone = State.current.matches
                 .filter(m => m.isLosersBracket && m.losersBracketFromRound === fromRound && m.losersBracketRound === currentRound)
                 .every(m => m.completed);
-            const canAdvance = allCurrentDone && currentRound < totalRounds - 1;
+            const canAdvance = !isRoundRobin && allCurrentDone && currentRound < totalRounds - 1;
 
             return `
                 <div class="card">
-                    <h2>🥈 ${label}</h2>
+                    <h2>🥈 ${label}${isRoundRobin ? ' (každý s každým)' : ''}</h2>
                     <div class="bracket-container">
                         <div class="bracket">
                             ${rounds.map(({ roundLabel, matches }) => `

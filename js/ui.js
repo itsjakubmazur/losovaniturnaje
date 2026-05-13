@@ -510,7 +510,7 @@ const UI = {
                     : ''}
 
                 ${(() => {
-                    if (State.current.system !== 'knockout' || !State.current.playoffBracket || !State.current.knockoutLosers) return '';
+                    if (!State.current.playoffBracket || !State.current.knockoutLosers) return '';
                     const generatedRounds = (State.current.knockoutLosersBrackets || []).map(b => b.fromRound);
                     const pendingRounds = Object.keys(State.current.knockoutLosers)
                         .map(Number)
