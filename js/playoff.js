@@ -187,15 +187,19 @@ const Playoff = {
         const groupStandings = Stats.calculateGroupStandings();
         if (!groupStandings) return false;
 
+        // Round to nearest integer to handle floating-point edge cases
+        const advancers = Math.round(advancersPerGroup);
         const numGroups = State.current.groups.length;
         const tiers = {};
 
         Object.entries(groupStandings).forEach(([groupLetter, standings]) => {
             standings.forEach((playerStats, pos) => {
                 const position = pos + 1;
-                if (position <= advancersPerGroup) return;
+                if (position <= advancers) return;
                 if (!tiers[position]) tiers[position] = [];
-                const participant = State.current.participants.find(p => (p.name || p) === playerStats.player);
+                // playerRef is guaranteed to be set (calculateGroupStandings initialises it)
+                const participant = playerStats.playerRef ||
+                    State.current.participants.find(p => (p.name || p) === playerStats.player);
                 tiers[position].push({
                     ...(participant && typeof participant === 'object' ? participant : { name: playerStats.player }),
                     groupPosition: position,
