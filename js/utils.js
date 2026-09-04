@@ -74,25 +74,35 @@ const Utils = {
         if (score1 === null || score2 === null) return true;
         const s1 = parseInt(score1);
         const s2 = parseInt(score2);
-        
+
+        if (isNaN(s1) || isNaN(s2)) return false;
         if (s1 < 0 || s2 < 0) return false;
-        if (s1 > State.current.tieBreakPoints || s2 > State.current.tieBreakPoints) return false;
-        
-        // At least one player must reach pointsPerSet
-        if (s1 < State.current.pointsPerSet && s2 < State.current.pointsPerSet) return false;
-        
-        // If under tie-break, require 2 point difference
-        const maxScore = Math.max(s1, s2);
-        if (maxScore < State.current.tieBreakPoints) {
-            if (Math.abs(s1 - s2) < 2) return false;
-        } else {
-            // At tie-break point, only 1 point difference needed
-            if (maxScore === State.current.tieBreakPoints) {
-                if (Math.abs(s1 - s2) !== 1) return false;
-            }
-        }
-        
-        return true;
+        const target = State.current.pointsPerSet;   // cílová hranice setu
+        const cap = State.current.tieBreakPoints;     // strop, kde stačí rozdíl 1
+        const winByTwo = State.current.winByTwo !== false;
+        if (s1 > cap || s2 > cap) return false;
+        const max = Math.max(s1, s2);
+        const diff = Math.abs(s1 - s2);
+        if (max < target) return false;                              // nikdo nedohrál
+        if (max >= cap) return diff >= 1;                            // dosažen strop
+        if (max === target) return winByTwo ? diff >= 2 : diff >= 1; // vyhráno na hranici
+        return diff === 2;                                           // prodloužení
+    },
+
+    // Rozhodl se zápas až v prodloužení?
+    // Ano, pokud vítěz posledního odehraného setu přesáhl cílovou hranici.
+    // (do 10 na dva rozdílové: 10:8 = čistá výhra, 12:10 = prodloužení)
+    matchWentToOvertime(match) {
+        if (!State.current.overtimeScoring) return false;
+        const sets = (match.sets || []).filter(s => s.score1 !== null && s.score2 !== null);
+        if (sets.length === 0) return false;
+        const last = sets[sets.length - 1];
+        return Math.max(last.score1, last.score2) > State.current.pointsPerSet;
+    },
+
+    // Popisek jednotky skóre podle sportu
+    scoreUnitLabel() {
+        return State.current.sport === 'tennis' ? 'Gemy' : 'Míče';
     },
 
     // Výpočet uplynulého času

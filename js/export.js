@@ -33,7 +33,7 @@ const Export = {
     },
 
     toCSV() {
-        let csv = 'Pořadí,Jméno,Zápasy,Výhry,Remízy,Prohry,Sety,Body v setech,Body\n';
+        let csv = `Pořadí,Jméno,Zápasy,Výhry,Remízy,Prohry,Sety,${Utils.scoreUnitLabel()} v setech,Body\n`;
         
         State.current.standings.forEach((s, i) => {
             csv += `${i + 1},${s.player},${s.played},${s.wins},${s.draws},${s.losses},${s.setsWon}:${s.setsLost},${s.pointsWon}:${s.pointsLost},${s.points}\n`;
@@ -87,7 +87,7 @@ const Export = {
             return `
                 <h2${sectionBreak ? ' class="pb"' : ''}>${esc(title)}</h2>
                 <table>
-                    <thead><tr><th>#</th><th>Jméno</th><th>Z</th><th>V</th><th>R</th><th>P</th><th>Sety</th><th>Body v setech</th><th>Body</th></tr></thead>
+                    <thead><tr><th>#</th><th>Jméno</th><th>Z</th><th>V</th><th>R</th><th>P</th><th>Sety</th><th>${Utils.scoreUnitLabel()} v setech</th><th>Body</th></tr></thead>
                     <tbody>
                     ${standings.map((s, i) => `
                         <tr class="${i < 3 ? 'pos-' + (i + 1) : ''}">

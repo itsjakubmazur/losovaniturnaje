@@ -225,6 +225,13 @@ const UI = {
 
                 <div class="input-row">
                     <div class="input-group">
+                        <label>Sport</label>
+                        <select id="sport">
+                            <option value="badminton" ${State.current.sport === 'badminton' ? 'selected' : ''}>🏸 Badminton</option>
+                            <option value="tennis" ${State.current.sport === 'tennis' ? 'selected' : ''}>🎾 Tenis</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
                         <label>Body za výhru</label>
                         <select id="points-win">
                             <option value="2" ${State.current.pointsForWin === 2 ? 'selected' : ''}>2 body</option>
@@ -250,15 +257,42 @@ const UI = {
 
                 <div class="input-row">
                     <div class="input-group">
-                        <label>Bodů na set</label>
-                        <input type="number" id="points-per-set" min="11" max="30" value="${State.current.pointsPerSet}">
-                        <small>Obvykle 21 bodů</small>
+                        <label>${Utils.scoreUnitLabel()} na set</label>
+                        <input type="number" id="points-per-set" min="1" max="30" value="${State.current.pointsPerSet}">
+                        <small>${State.current.sport === 'tennis' ? 'Obvykle 10 gemů (tie-break sada)' : 'Obvykle 21 bodů'}</small>
                     </div>
                     <div class="input-group">
                         <label>Tie-break limit</label>
-                        <input type="number" id="tiebreak-points" min="21" max="50" value="${State.current.tieBreakPoints}">
-                        <small>Maximum bodů v setu (obvykle 30)</small>
+                        <input type="number" id="tiebreak-points" min="1" max="50" value="${State.current.tieBreakPoints}">
+                        <small>Maximum ${Utils.scoreUnitLabel().toLowerCase()} v setu (obvykle ${State.current.sport === 'tennis' ? '20' : '30'})</small>
                     </div>
+                    <div class="input-group">
+                        <label>Vyhrát o dva rozdílové</label>
+                        <select id="win-by-two">
+                            <option value="1" ${State.current.winByTwo !== false ? 'selected' : ''}>Ano</option>
+                            <option value="0" ${State.current.winByTwo === false ? 'selected' : ''}>Ne</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>
+                            <input type="checkbox" id="overtime-scoring" ${State.current.overtimeScoring ? 'checked' : ''}>
+                            Bodovat prodloužení zvlášť
+                        </label>
+                        <small>Vítěz v prodloužení dostane jiný počet bodů do tabulky</small>
+                    </div>
+                    ${State.current.overtimeScoring ? `
+                    <div class="input-group">
+                        <label>Body za výhru v prodloužení</label>
+                        <input type="number" id="points-overtime-win" min="0" max="10" value="${State.current.pointsForOvertimeWin}">
+                    </div>
+                    <div class="input-group">
+                        <label>Body za prohru v prodloužení</label>
+                        <input type="number" id="points-overtime-loss" min="0" max="10" value="${State.current.pointsForOvertimeLoss}">
+                    </div>
+                    ` : ''}
                 </div>
 
                 <h3 style="margin-top: 30px; margin-bottom: 15px; color: var(--primary);">⏱️ Časování</h3>
@@ -728,7 +762,7 @@ const UI = {
                     <thead>
                         <tr>
                             <th>${i18n.t('results.position')}</th><th>${i18n.t('results.player')}</th><th>${i18n.currentLang === 'cs' ? 'Z' : 'M'}</th><th>${i18n.currentLang === 'cs' ? 'V' : 'W'}</th><th>${i18n.currentLang === 'cs' ? 'R' : 'D'}</th><th>${i18n.currentLang === 'cs' ? 'P' : 'L'}</th>
-                            <th>${i18n.t('results.sets')}</th><th>${i18n.currentLang === 'cs' ? 'Body v setech' : 'Set Points'}</th><th>${i18n.t('results.points')}</th>
+                            <th>${i18n.t('results.sets')}</th><th>${i18n.currentLang === 'cs' ? Utils.scoreUnitLabel() + ' v setech' : 'Set Points'}</th><th>${i18n.t('results.points')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -963,7 +997,7 @@ const UI = {
                         <th title="Zápasy">Z</th>
                         <th title="Výhry">V</th>
                         <th title="Sety">Sety</th>
-                        <th title="Míče">Míče</th>
+                        <th title="${Utils.scoreUnitLabel()}">${Utils.scoreUnitLabel()}</th>
                         <th title="Body">B</th>
                     </tr>
                 </thead>
@@ -995,7 +1029,7 @@ const UI = {
                 <div class="sp-group-block">
                     <div class="sp-group-header" style="background:${color};">Skupina ${letter}</div>
                     <table class="sp-table">
-                        <thead><tr><th>#</th><th class="sp-col-name">Hráč</th><th>Z</th><th>V</th><th>Sety</th><th>Míče</th><th>B</th></tr></thead>
+                        <thead><tr><th>#</th><th class="sp-col-name">Hráč</th><th>Z</th><th>V</th><th>Sety</th><th>${Utils.scoreUnitLabel()}</th><th>B</th></tr></thead>
                         <tbody>
                             ${standings.map((s, i) => `
                                 <tr class="${i < 2 ? 'sp-qualify' : ''}">
@@ -1242,7 +1276,7 @@ const UI = {
         }
 
         ['num-courts', 'match-duration', 'break-time', 'num-groups', 'points-win', 'points-draw',
-         'best-of', 'points-per-set', 'tiebreak-points'].forEach(id => {
+         'best-of', 'points-per-set', 'tiebreak-points', 'points-overtime-win', 'points-overtime-loss'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
                 el.addEventListener('change', e => {
@@ -1252,6 +1286,46 @@ const UI = {
                 });
             }
         });
+
+        const sportSelect = document.getElementById('sport');
+        if (sportSelect) {
+            sportSelect.addEventListener('change', e => {
+                const presets = {
+                    badminton: {
+                        bestOf: 3, pointsPerSet: 21, tieBreakPoints: 30, winByTwo: true,
+                        pointsForWin: 2, overtimeScoring: false
+                    },
+                    tennis: {
+                        bestOf: 1, pointsPerSet: 10, tieBreakPoints: 20, winByTwo: true,
+                        pointsForWin: 3, overtimeScoring: true,
+                        pointsForOvertimeWin: 2, pointsForOvertimeLoss: 1, matchDuration: 25
+                    }
+                };
+                const preset = presets[e.target.value];
+                State.current.sport = e.target.value;
+                if (preset) {
+                    Object.assign(State.current, preset);
+                }
+                State.save();
+                UI.render();
+            });
+        }
+
+        const winByTwoSelect = document.getElementById('win-by-two');
+        if (winByTwoSelect) {
+            winByTwoSelect.addEventListener('change', e => {
+                State.current.winByTwo = e.target.value === '1';
+                State.save();
+            });
+        }
+
+        const overtimeScoringCheckbox = document.getElementById('overtime-scoring');
+        if (overtimeScoringCheckbox) {
+            overtimeScoringCheckbox.addEventListener('change', e => {
+                State.current.overtimeScoring = e.target.checked;
+                State.save(); UI.render();
+            });
+        }
 
         // Klikatelné kroky v liště
         document.querySelectorAll('.step[data-step]').forEach(stepEl => {

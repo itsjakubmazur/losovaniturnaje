@@ -1,6 +1,19 @@
 // stats.js - Výpočet statistik
 
 const Stats = {
+    awardMatchPoints(winner, loser, match) {
+        winner.wins++;
+        loser.losses++;
+        if (Utils.matchWentToOvertime(match)) {
+            winner.otWins = (winner.otWins || 0) + 1;
+            loser.otLosses = (loser.otLosses || 0) + 1;
+            winner.points += State.current.pointsForOvertimeWin;
+            loser.points += State.current.pointsForOvertimeLoss;
+        } else {
+            winner.points += State.current.pointsForWin;
+        }
+    },
+
     // Calculate standings for each group separately
     calculateGroupStandings() {
         if (State.current.system !== 'groups' || !State.current.groups.length) {
@@ -71,13 +84,9 @@ const Stats = {
             });
 
             if (p1SetsWon > p2SetsWon) {
-                groupStandings[groupLetter][p1Key].wins++;
-                groupStandings[groupLetter][p1Key].points += State.current.pointsForWin;
-                groupStandings[groupLetter][p2Key].losses++;
+                this.awardMatchPoints(groupStandings[groupLetter][p1Key], groupStandings[groupLetter][p2Key], m);
             } else if (p2SetsWon > p1SetsWon) {
-                groupStandings[groupLetter][p2Key].wins++;
-                groupStandings[groupLetter][p2Key].points += State.current.pointsForWin;
-                groupStandings[groupLetter][p1Key].losses++;
+                this.awardMatchPoints(groupStandings[groupLetter][p2Key], groupStandings[groupLetter][p1Key], m);
             } else {
                 groupStandings[groupLetter][p1Key].draws++;
                 groupStandings[groupLetter][p2Key].draws++;
@@ -126,8 +135,8 @@ const Stats = {
                         else if (s.score2 > s.score1) { p2s++; stats[p2].setsWon++; stats[p1].setsLost++; }
                     }
                 });
-                if (p1s > p2s) { stats[p1].wins++; stats[p1].points += State.current.pointsForWin; stats[p2].losses++; }
-                else if (p2s > p1s) { stats[p2].wins++; stats[p2].points += State.current.pointsForWin; stats[p1].losses++; }
+                if (p1s > p2s) { this.awardMatchPoints(stats[p1], stats[p2], m); }
+                else if (p2s > p1s) { this.awardMatchPoints(stats[p2], stats[p1], m); }
                 else { stats[p1].draws++; stats[p2].draws++; stats[p1].points += State.current.pointsForDraw; stats[p2].points += State.current.pointsForDraw; }
             });
             const basic = Object.values(stats).sort((a, b) => b.points - a.points);
@@ -199,13 +208,9 @@ const Stats = {
             });
             
             if (p1SetsWon > p2SetsWon) {
-                stats[p1Name].wins++;
-                stats[p1Name].points += State.current.pointsForWin;
-                stats[p2Name].losses++;
+                this.awardMatchPoints(stats[p1Name], stats[p2Name], m);
             } else if (p2SetsWon > p1SetsWon) {
-                stats[p2Name].wins++;
-                stats[p2Name].points += State.current.pointsForWin;
-                stats[p1Name].losses++;
+                this.awardMatchPoints(stats[p2Name], stats[p1Name], m);
             } else {
                 stats[p1Name].draws++;
                 stats[p2Name].draws++;
