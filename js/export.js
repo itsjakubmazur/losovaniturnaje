@@ -83,7 +83,7 @@ const Export = {
 
         function standingsTable(standings, title, sectionBreak) {
             if (!standings || !standings.length) return '';
-            const posIcons = ['🥇', '🥈', '🥉'];
+            const posIcons = ['1.', '2.', '3.'];
             return `
                 <h2${sectionBreak ? ' class="pb"' : ''}>${esc(title)}</h2>
                 <table>
@@ -133,7 +133,7 @@ const Export = {
         let content = '';
 
         // 1. Final / overall standings
-        content += standingsTable(t.standings, '📊 Konečné pořadí', false);
+        content += standingsTable(t.standings, 'Konečné pořadí', false);
 
         // 2. Per-group standings (groups system only)
         if (t.system === 'groups' && t.groups && t.groups.length) {
@@ -141,7 +141,7 @@ const Export = {
             if (gs && Object.keys(gs).length) {
                 let first = true;
                 Object.entries(gs).forEach(([letter, standings]) => {
-                    content += standingsTable(standings, `📊 Skupina ${letter}`, first);
+                    content += standingsTable(standings, `Skupina ${letter}`, first);
                     first = false;
                 });
             }
@@ -153,7 +153,7 @@ const Export = {
             const maxR = t.playoffBracket.currentRound;
             const isKO = t.playoffBracket.isKnockout;
 
-            content += `<h2 class="pb">🏆 ${isKO ? 'Pavouk' : 'Playoff Pavouk'}</h2>`;
+            content += `<h2 class="pb">${isKO ? 'Pavouk' : 'Playoff'}</h2>`;
             for (let r = 0; r <= maxR; r++) {
                 const rMatches = t.matches.filter(m =>
                     m.knockoutRound === r &&
@@ -167,7 +167,7 @@ const Export = {
         }
 
         // 4. All matches organized by rounds / groups
-        content += '<h2 class="pb">🏸 Výsledky zápasů</h2>';
+        content += '<h2 class="pb">Výsledky zápasů</h2>';
 
         if (t.system === 'groups') {
             // Group phase: by group letter, then round
@@ -221,23 +221,23 @@ const Export = {
 <style>
 @page { margin: 2cm; size: A4; }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 11px; line-height: 1.5; }
+body { font-family: 'Archivo', 'Segoe UI', Arial, sans-serif; font-variant-numeric: tabular-nums; color: #1e293b; font-size: 11px; line-height: 1.5; }
 
-.hdr { text-align: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 3px solid #1e40af; }
-.hdr h1 { color: #1e40af; font-size: 20px; margin-bottom: 4px; }
+.hdr { text-align: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 3px solid #1e5a46; }
+.hdr h1 { color: #1e5a46; font-size: 20px; margin-bottom: 4px; }
 .hdr .sub { color: #64748b; font-size: 11px; }
 
 .sum { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px; }
-.sb { background: #f8fafc; border: 1px solid #dbeafe; border-radius: 6px; padding: 8px; text-align: center; }
+.sb { background: #f8fafc; border: 1px solid #d6ddd7; border-radius: 6px; padding: 8px; text-align: center; }
 .sb .lbl { font-size: 9px; color: #64748b; margin-bottom: 2px; }
-.sb .val { font-size: 14px; font-weight: 700; color: #1e40af; }
+.sb .val { font-size: 14px; font-weight: 700; color: #1e5a46; }
 
-h2 { color: #1e40af; font-size: 13px; margin: 18px 0 8px; padding-bottom: 5px; border-bottom: 2px solid #bfdbfe; }
-h3 { color: #2563eb; font-size: 11px; margin: 12px 0 5px; font-weight: 700; }
+h2 { color: #1e5a46; font-size: 13px; margin: 18px 0 8px; padding-bottom: 5px; border-bottom: 2px solid #d6ddd7; }
+h3 { color: #1e5a46; font-size: 11px; margin: 12px 0 5px; font-weight: 700; }
 h4 { color: #64748b; font-size: 10px; margin: 8px 0 3px; font-weight: 600; }
 
 table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-th { background: #1e40af; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; }
+th { background: #1e5a46; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; }
 td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
 tr:nth-child(even) { background: #f8fafc; }
 
@@ -262,7 +262,7 @@ tr:nth-child(even) { background: #f8fafc; }
 </head>
 <body>
 <div class="hdr">
-    <h1>🏸 ${esc(t.tournamentName || 'Turnaj')}</h1>
+    <h1>${esc(t.tournamentName || 'Turnaj')}</h1>
     <div class="sub">${Utils.formatDate(t.tournamentDate)} &bull; ${esc(Utils.getSystemName())} &bull; ${esc(disciplineLabel)}</div>
 </div>
 <div class="sum">
@@ -286,16 +286,14 @@ ${content}
         const tournament = State.current;
         const winner = tournament.standings[0];
 
-        let text = `🏸 ${tournament.tournamentName}\n`;
-        text += `📅 ${Utils.formatDate(tournament.tournamentDate)}\n\n`;
-        text += `🏆 Vítěz: ${winner?.player || '-'}\n`;
-        text += `👥 ${tournament.participants.length} účastníků\n`;
-        text += `⚽ ${tournament.matches.length} zápasů\n\n`;
+        let text = `${tournament.tournamentName}, ${Utils.formatDate(tournament.tournamentDate)}\n`;
+        text += `Vítěz: ${winner?.player || '-'}\n`;
+        text += `${tournament.participants.length} hráčů, ${tournament.matches.length} zápasů\n`;
 
         if (tournament.standings.length >= 3) {
-            text += `🥇 ${tournament.standings[0]?.player}\n`;
-            text += `🥈 ${tournament.standings[1]?.player}\n`;
-            text += `🥉 ${tournament.standings[2]?.player}\n`;
+            text += `\n1. ${tournament.standings[0]?.player}\n`;
+            text += `2. ${tournament.standings[1]?.player}\n`;
+            text += `3. ${tournament.standings[2]?.player}\n`;
         }
 
         return text;
@@ -347,42 +345,27 @@ ${content}
 
     menu() {
         const modal = document.getElementById('export-modal');
+        const item = (icon, title, note, action) => `
+            <button class="menu-item menu-item-icon" onclick="${action}; UI.closeModal('export-modal')">
+                ${Icons.svg(icon)}<span><strong>${title}</strong><span>${note}</span></span>
+            </button>`;
         modal.innerHTML = `
-            <div class="modal-content">
+            <div class="modal-content modal-narrow">
                 <div class="modal-header">
-                    <h3>📤 Export & Sdílení</h3>
-                    <button class="modal-close" onclick="UI.closeModal('export-modal')">×</button>
+                    <h3>Export a sdílení</h3>
+                    <button class="modal-close" onclick="UI.closeModal('export-modal')" aria-label="Zavřít">${Icons.svg('x')}</button>
                 </div>
-
-                <h4 style="margin-top: 20px; margin-bottom: 10px; color: var(--primary);">📊 Export dat</h4>
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <button class="btn btn-danger" onclick="Export.toPDF(); UI.closeModal('export-modal')">
-                        📄 Exportovat PDF
-                    </button>
-                    <button class="btn btn-primary" onclick="Export.toJSON(); UI.closeModal('export-modal')">
-                        💾 Exportovat JSON
-                    </button>
-                    <button class="btn btn-secondary" onclick="Export.toCSV(); UI.closeModal('export-modal')">
-                        📊 Exportovat CSV (Excel)
-                    </button>
+                <div class="menu-list">
+                    ${item('file', 'PDF s výsledky', 'Pořadí, tabulky, pavouk a všechny zápasy k tisku', 'Export.toPDF()')}
+                    ${item('table', 'CSV pro Excel', 'Tabulka pořadí do tabulkového editoru', 'Export.toCSV()')}
+                    ${item('download', 'JSON', 'Kompletní data pro jiné systémy', 'Export.toJSON()')}
                 </div>
-
-                <h4 style="margin-top: 30px; margin-bottom: 10px; color: var(--primary);">📱 Sdílení</h4>
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    ${navigator.share ? `
-                        <button class="btn btn-warning" onclick="Export.shareViaWebShare()">
-                            📤 Sdílet
-                        </button>
-                    ` : ''}
-                    <button class="btn btn-info" onclick="Export.shareToTwitter()">
-                        🐦 Sdílet na Twitter
-                    </button>
-                    <button class="btn btn-info" onclick="Export.shareToFacebook()">
-                        👥 Sdílet na Facebook
-                    </button>
-                    <button class="btn btn-outline" onclick="Export.copyShareText()">
-                        📋 Zkopírovat text
-                    </button>
+                <h4 class="menu-heading">Sdílet výsledky</h4>
+                <div class="menu-list">
+                    ${navigator.share ? item('share', 'Sdílet', 'Přes aplikace v telefonu', 'Export.shareViaWebShare()') : ''}
+                    ${item('copy', 'Zkopírovat text', 'Vítěz a stupně vítězů jako text', 'Export.copyShareText()')}
+                    ${item('external', 'Facebook', 'Otevře sdílení v novém okně', 'Export.shareToFacebook()')}
+                    ${item('external', 'X (Twitter)', 'Otevře sdílení v novém okně', 'Export.shareToTwitter()')}
                 </div>
             </div>
         `;

@@ -30,7 +30,7 @@ const i18n = {
 
             // Steps
             'step.setup': 'Nastavení',
-            'step.participants': 'Účastníci',
+            'step.participants': 'Hráči',
             'step.draw': 'Losování',
             'step.matches': 'Zápasy',
             'step.results': 'Výsledky',
@@ -50,7 +50,7 @@ const i18n = {
             // Systems
             'system.roundrobin': 'Každý s každým',
             'system.swiss': 'Švýcarský systém',
-            'system.groups': 'Skupiny + Playoff',
+            'system.groups': 'Skupiny a playoff',
             'system.knockout': 'Vyřazovací',
 
             // Participants
@@ -257,21 +257,19 @@ const i18n = {
     showLanguageSelector() {
         const modal = document.createElement('div');
         modal.className = 'modal show';
+        const opt = (lang, label, note) => `
+            <button class="menu-item ${this.currentLang === lang ? 'is-current' : ''}" onclick="i18n.setLanguage('${lang}'); this.closest('.modal').remove();">
+                <strong>${label}</strong><span>${note}</span>
+            </button>`;
         modal.innerHTML = `
-            <div class="modal-content">
+            <div class="modal-content modal-narrow">
                 <div class="modal-header">
-                    <h3>🌍 ${this.currentLang === 'cs' ? 'Vyberte jazyk' : 'Select Language'}</h3>
-                    <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+                    <h3>${this.currentLang === 'cs' ? 'Jazyk' : 'Language'}</h3>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">${Icons.svg('x')}</button>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
-                    <button class="btn ${this.currentLang === 'cs' ? 'btn-primary' : 'btn-outline'}"
-                            onclick="i18n.setLanguage('cs'); this.closest('.modal').remove();">
-                        🇨🇿 Čeština
-                    </button>
-                    <button class="btn ${this.currentLang === 'en' ? 'btn-primary' : 'btn-outline'}"
-                            onclick="i18n.setLanguage('en'); this.closest('.modal').remove();">
-                        🇬🇧 English
-                    </button>
+                <div class="menu-list">
+                    ${opt('cs', 'Čeština', 'Výchozí jazyk')}
+                    ${opt('en', 'English', 'Part of the interface')}
                 </div>
             </div>
         `;
