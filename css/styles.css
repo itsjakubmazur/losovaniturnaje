@@ -1167,6 +1167,7 @@ body.dark-mode .toast-action { border-color: rgba(0, 0, 0, 0.25); }
 }
 
 @media (max-width: 960px) {
+    .spectator-dashboard { grid-template-columns: 1fr; }
     .app { grid-template-columns: 1fr; }
     .sidebar {
         height: auto; flex-direction: row; align-items: center; gap: 8px;
@@ -1271,6 +1272,18 @@ body.is-readonly .main { max-width: 1400px; margin: 0 auto; }
     .sp-podium-bar-1 { height: 68px; }
     .sp-podium-bar-2 { height: 46px; }
     .court-board { margin-inline: -4px; }
+    .court-board { padding: 14px; }
+    .court-grid { grid-template-columns: 1fr; }
+    /* Volný kurt na telefonu: jen úzký pruh, ať tři prázdné kurty nezaberou celou obrazovku */
+    .court-tile.is-free { flex-direction: row; align-items: center; gap: 12px; }
+    .court-tile.is-free .court-tile-head { flex-direction: column; gap: 0; min-width: 64px; }
+    .court-tile.is-free .court-surface {
+        flex: 1; aspect-ratio: auto; min-height: 52px;
+        background-image: none; border: 1.5px dashed rgba(255, 255, 255, 0.35); box-shadow: none;
+    }
+    .court-tile.is-free .court-wait { background: none; padding: 0; }
+    .button-group .btn { flex: 1 1 auto; }
+    .spectator-col { padding: 14px 14px; }
     .seg-filter { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; width: 100%; }
     .seg-filter .seg-btn { flex: 1 0 auto; justify-content: center; padding-inline: 10px; }
     .schedule-tools .search { width: 100%; }
