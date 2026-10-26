@@ -245,7 +245,7 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 ::placeholder { color: var(--muted); opacity: 0.55; }
 .set-input::placeholder { opacity: 0.3; }
 
-.input-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0 16px; }
+.input-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 0 16px; }
 
 .check-row { display: flex !important; align-items: flex-start; gap: 12px; cursor: pointer; font-weight: 400 !important; margin-bottom: 12px !important; }
 .check-row input { margin-top: 2px; }
@@ -254,9 +254,9 @@ input[type="number"] { font-variant-numeric: tabular-nums; }
 .option-panel-title { font-size: 0.9375rem !important; margin-bottom: 12px !important; }
 
 /* Volba systému / disciplíny: nákres + název */
-.system-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
-.system-options-3 { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-.system-options-2 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.system-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 10px; }
+.system-options-3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); }
+.system-options-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
 .system-option {
     position: relative; cursor: pointer;
     padding: 14px 16px 16px; border-radius: var(--r-md);
@@ -373,8 +373,8 @@ body.dark-mode .presence.on { color: var(--ink); }
 .facts dt { font-size: 0.8125rem; color: var(--muted); }
 .facts dd { font-size: 1.125rem; font-weight: 700; font-stretch: 112%; }
 
-.groups-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin: 8px 0; }
-.groups-grid-wide { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+.groups-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 12px; margin: 8px 0; }
+.groups-grid-wide { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
 .group-box {
     --group: var(--court);
     border: 1px solid var(--rule); border-radius: var(--r-md); overflow: hidden; background: var(--surface);
@@ -428,7 +428,7 @@ body.dark-mode .presence.on { color: var(--ink); }
 .court-board .btn-primary { background: var(--shuttle); color: var(--shuttle-ink); }
 .court-board .btn-primary:hover { background: #fff; }
 
-.court-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px 12px; }
+.court-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 14px 12px; }
 
 .court-tile { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .court-tile-head { display: flex; align-items: baseline; gap: 10px; padding: 0 2px; }
@@ -478,7 +478,11 @@ body.dark-mode .presence.on { color: var(--ink); }
     background-color: color-mix(in srgb, var(--court) 45%, var(--court-deep));
     opacity: 0.9;
 }
-.court-wait { color: rgba(255, 255, 255, 0.7); font-size: 0.875rem; }
+.court-wait, .court-tile.is-free .btn-court { position: relative; z-index: 1; }
+.court-wait {
+    color: rgba(255, 255, 255, 0.85); font-size: 0.8125rem; font-weight: 550;
+    background: var(--court-deep); padding: 4px 12px; border-radius: 999px;
+}
 
 .court-queue { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.15); font-size: 0.875rem; }
 .court-queue-label { font-weight: 700; color: var(--shuttle); }
@@ -732,12 +736,12 @@ th.name-cell { font-weight: 600; }
                       linear-gradient(transparent 8px, rgba(255,255,255,.7) 8px, rgba(255,255,255,.7) 10px, transparent 10px, transparent calc(100% - 10px), rgba(255,255,255,.7) calc(100% - 10px), rgba(255,255,255,.7) calc(100% - 8px), transparent calc(100% - 8px));
 }
 
-.history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 10px; }
 .history-card { padding: 16px; border-radius: var(--r-md); border: 1px solid var(--rule); background: var(--surface-2); cursor: pointer; }
 .history-card:hover { border-color: var(--court); }
 .history-card-title { font-weight: 700; margin-bottom: 6px; }
 
-.template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 10px; }
 .template-card { position: relative; padding: 14px; border-radius: var(--r-md); border: 1px solid var(--rule); background: var(--surface-2); cursor: pointer; }
 .template-card:hover { border-color: var(--court); }
 .template-card-title { font-weight: 700; margin-bottom: 4px; padding-right: 28px; }
@@ -790,7 +794,7 @@ th.name-cell { font-weight: 600; }
 .spectator-courts { background: var(--court-deep); color: #fff; border-radius: var(--r-lg); padding: 16px 18px 18px; }
 .spectator-courts .spectator-col-title { color: #fff; }
 .spectator-courts .spectator-badge { background: rgba(255, 255, 255, 0.15); color: #fff; }
-.spectator-dashboard { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr); gap: 18px; align-items: start; }
+.spectator-dashboard { display: grid; grid-template-columns: minmax(min(100%, 260px), 1fr) minmax(0, 2fr); gap: 18px; align-items: start; }
 .spectator-col { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-lg); padding: 16px 18px; min-width: 0; }
 .spectator-col-title { display: flex; align-items: center; gap: 10px; font-size: 1.0625rem; font-weight: 750; font-stretch: 115%; margin-bottom: 12px; }
 .spectator-subtitle { font-size: 0.9375rem; font-weight: 700; margin: 16px 0 8px; }
@@ -834,7 +838,7 @@ th.name-cell { font-weight: 600; }
 .sp-bm-player + .sp-bm-player { border-top: 1px solid var(--rule); }
 .sp-bm-winner { font-weight: 750; }
 
-.sp-result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+.sp-result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 18px; }
 
 /* Stupně vítězů */
 .sp-podium-wrap { margin: 10px 0 22px; }
@@ -852,13 +856,16 @@ th.name-cell { font-weight: 600; }
 /* Monitor v hale (#live=…&tv=1) */
 .tv-clock { font-size: 1.75rem; font-weight: 800; font-stretch: 120%; }
 body.tv-mode .header, body.tv-mode .steps { display: none; }
-body.tv-mode .container { max-width: none; padding: 24px 32px; }
-body.tv-mode { font-size: 18px; }
-body.tv-mode .court-grid { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 18px; }
-body.tv-mode .court-player { font-size: 1.25rem; }
-body.tv-mode .court-no { font-size: 1.375rem; }
-body.tv-mode .court-timer { font-size: 1.25rem; }
-body.tv-mode .court-score { font-size: 0.9375rem; }
+body.tv-mode .container { max-width: none; padding: clamp(16px, 2.5vw, 32px); }
+/* Zvětšení jen na velké obrazovce – na telefonu zůstává běžná velikost */
+@media (min-width: 900px) {
+    body.tv-mode { font-size: 18px; }
+    body.tv-mode .court-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 18px; }
+    body.tv-mode .court-player { font-size: 1.25rem; }
+    body.tv-mode .court-no { font-size: 1.375rem; }
+    body.tv-mode .court-timer { font-size: 1.25rem; }
+    body.tv-mode .court-score { font-size: 0.9375rem; }
+}
 
 /* ===== Stránka rozhodčího (#ref=…) ===== */
 
@@ -902,6 +909,14 @@ body.ref-mode .container { max-width: 480px; padding-top: 20px; }
     .participants-grid, .matches-grid, .groups-grid-wide { grid-template-columns: 1fr; }
     .court-board { padding: 14px; margin-left: -4px; margin-right: -4px; }
     .court-grid { grid-template-columns: 1fr; }
+    /* Volný kurt na telefonu: jen úzký pruh, ať tři prázdné kurty nezaberou celou obrazovku */
+    .court-tile.is-free { flex-direction: row; align-items: center; gap: 12px; }
+    .court-tile.is-free .court-tile-head { flex-direction: column; gap: 0; min-width: 64px; }
+    .court-tile.is-free .court-surface {
+        flex: 1; aspect-ratio: auto; min-height: 52px;
+        background-image: none; border: 1.5px dashed rgba(255, 255, 255, 0.35); box-shadow: none;
+    }
+    .court-tile.is-free .court-wait { background: none; padding: 0; }
     .button-group .btn { flex: 1 1 auto; }
     .modal { align-items: flex-end; padding: 0; }
     .modal-content { border-radius: var(--r-lg) var(--r-lg) 0 0; max-height: 92vh; }
