@@ -428,6 +428,12 @@ body.dark-mode .presence.on { color: var(--ink); }
 .court-board .btn-primary { background: var(--shuttle); color: var(--shuttle-ink); }
 .court-board .btn-primary:hover { background: #fff; }
 
+.voice-settings { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; margin: -4px 0 16px; font-size: 0.875rem; }
+.voice-settings label { font-weight: 650; }
+.voice-settings select { width: auto; max-width: 100%; min-height: 36px; padding: 6px 10px; background: rgba(255, 255, 255, 0.95); color: #16211c; }
+.voice-settings .btn-outline { background: transparent; color: #fff; border-color: rgba(255, 255, 255, 0.35); }
+.voice-settings .btn-outline:hover { border-color: #fff; }
+.voice-hint { flex-basis: 100%; color: rgba(255, 255, 255, 0.7); font-size: 0.8125rem; max-width: 72ch; }
 .court-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 14px 12px; }
 
 .court-tile { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
