@@ -33,8 +33,10 @@ const Utils = {
     },
 
     // Filtrování účastníků podle typu disciplíny
-    filterParticipantsByDiscipline(participants) {
+    filterParticipantsByDiscipline(allParticipants) {
         const disciplineType = State.current.disciplineType;
+        // Nepřítomní (prezence) se do losu nezapočítávají
+        const participants = allParticipants.filter(p => !p.absent);
 
         if (disciplineType === 'singles') {
             // Pouze jednotlivci (bez partnera)
@@ -156,8 +158,10 @@ const Utils = {
 
     // Notifikace
     showNotification(message, type = 'success') {
+        document.querySelectorAll('.notification').forEach(n => n.remove());
         const notification = document.createElement('div');
         notification.className = 'notification';
+        notification.setAttribute('role', 'status');
         notification.textContent = message;
         if (type === 'error') {
             notification.style.borderLeftColor = 'var(--danger)';

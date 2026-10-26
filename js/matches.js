@@ -164,37 +164,37 @@ const Matches = {
                 <div class="match-card completed collapsed" id="match-${idx}" data-match="${idx}">
                     <div class="match-summary" onclick="toggleMatchDetail(${idx})">
                         <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
-                            <span style="font-weight:bold;color:var(--text-muted);min-width:70px;">Zápas ${idx + 1}</span>
+                            <span class="match-no">${idx + 1}</span>
                             <div class="match-result" style="flex: 1;">
-                                <span ${winner === 1 ? 'style="color:var(--secondary);"' : ''}>${p1Name}</span>
+                                <span class="${winner === 1 ? 'is-winner' : ''}">${p1Name}</span>
                                 <span class="match-score">${scoreDisplay}</span>
-                                <span ${winner === 2 ? 'style="color:var(--secondary);"' : ''}>${p2Name}</span>
+                                <span class="${winner === 2 ? 'is-winner' : ''}">${p2Name}</span>
                             </div>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size:0.875em;color:var(--text-muted);">
-                                ${match.sets.map(s => `${s.score1}:${s.score2}`).filter(s => !s.includes('null')).join(', ')}
+                            <span class="match-sets-inline">
+                                ${match.sets.map(s => `${s.score1}:${s.score2}`).filter(s => !s.includes('null')).join('  ')}
                             </span>
-                            <span class="expand-icon">▼</span>
+                            <span class="expand-icon" aria-hidden="true"></span>
                         </div>
                     </div>
                     
                     <div class="match-details" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
                         <div class="match-header">
                             <span class="court-badge">Kurt ${match.court}</span>
-                            ${match.startTime ? `<span style="color:var(--text-muted);font-size:0.875em;">⏰ ${new Date(match.startTime).toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'})} - ${new Date(match.endTime).toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'})}</span>` : ''}
+                            ${match.startTime ? `<span class="match-time">${new Date(match.startTime).toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'})} - ${new Date(match.endTime).toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'})}</span>` : ''}
                         </div>
                         
                         <div class="match-players" style="margin-top: 15px;">
                             <div class="player-side ${winner === 1 ? 'winner' : ''}">
-                                <div style="width:35px;height:35px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.875em;font-weight:bold;">
+                                <div class="mini-avatar">
                                     ${Utils.getInitials(match.player1)}
                                 </div>
                                 <span>${p1Name}</span>
                             </div>
-                            <div style="color:var(--text-muted);font-weight:bold;font-size:1.2em;">VS</div>
+                            <div class="vs">vs</div>
                             <div class="player-side ${winner === 2 ? 'winner' : ''}">
-                                <div style="width:35px;height:35px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.875em;font-weight:bold;">
+                                <div class="mini-avatar">
                                     ${Utils.getInitials(match.player2)}
                                 </div>
                                 <span>${p2Name}</span>
@@ -205,9 +205,9 @@ const Matches = {
                             ${match.sets.map((set, setIdx) => {
                                 if (set.score1 === null && set.score2 === null) return '';
                                 return `
-                                    <div style="display:flex;justify-content:space-between;padding:8px;background:var(--bg);border-radius:6px;margin:5px 0;">
-                                        <span style="color:var(--text-muted);font-weight:500;">Set ${setIdx + 1}:</span>
-                                        <span style="font-weight:bold;">${set.score1} : ${set.score2}</span>
+                                    <div class="set-row set-row-done">
+                                        <span class="set-label">Set ${setIdx + 1}</span>
+                                        <span class="set-final">${set.score1}:${set.score2}</span>
                                     </div>
                                 `;
                             }).join('')}
@@ -215,13 +215,13 @@ const Matches = {
 
                         ${State.current.notes[idx] ? `
                             <div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:6px;">
-                                <strong style="font-size:0.875em;color:var(--text-muted);">Poznámky:</strong>
+                                <strong style="font-size:0.875em;color:var(--text-muted);">Poznámka</strong>
                                 <p style="margin-top:5px;">${State.current.notes[idx]}</p>
                             </div>
                         ` : ''}
 
                         <div class="button-group" style="margin-top: 15px;">
-                            <button class="btn btn-outline" onclick="editMatch(${idx})">✏️ Upravit</button>
+                            <button class="btn btn-outline btn-sm" onclick="editMatch(${idx})">Opravit výsledek</button>
                         </div>
                     </div>
                 </div>
@@ -232,28 +232,26 @@ const Matches = {
         const groupColor = match.group ? UI.getGroupColor(match.group) : null;
         return `
             <div class="match-card ${isPlaying ? 'playing' : ''}" data-match="${idx}" id="match-${idx}"
-                 ${groupColor ? `style="border-left-color: ${isPlaying ? 'var(--warning)' : groupColor};"` : ''}>
-                ${isPlaying ? `<div class="match-badge">
-                    <span class="live-indicator"><span class="live-dot"></span> LIVE</span>
-                </div>` : ''}
+                 ${groupColor ? `style="--group:${groupColor};"` : ''}>
+                ${isPlaying ? `<div class="match-badge"><span class="live-dot"></span> Hraje se</div>` : ''}
                 
                 <div class="match-header">
-                    <span style="font-weight:bold;color:var(--primary);">Zápas ${idx + 1}</span>
-                    ${match.group ? `<span class="group-badge" style="background:${UI.getGroupColor(match.group)};">Sk. ${match.group}</span>` : ''}
+                    <span class="match-no">${idx + 1}</span>
+                    ${match.group ? `<span class="group-badge" style="--group:${UI.getGroupColor(match.group)};">Sk. ${match.group}</span>` : match.roundName ? `<span class="round-chip">${match.roundName}</span>` : ''}
                     <span class="court-badge">Kurt ${match.court}</span>
-                    ${match.startTime ? `<span style="color:var(--text-muted);font-size:0.875em;">⏰ ${new Date(match.startTime).toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'})}</span>` : ''}
+                    ${match.startTime ? `<span class="match-time">${new Date(match.startTime).toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'})}</span>` : ''}
                 </div>
                 
                 <div class="match-players">
                     <div class="player-side">
-                        <div style="width:35px;height:35px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.875em;font-weight:bold;">
+                        <div class="mini-avatar">
                             ${Utils.getInitials(match.player1)}
                         </div>
                         <span>${p1Name}</span>
                     </div>
-                    <div style="color:var(--text-muted);font-weight:bold;font-size:1.2em;">VS</div>
+                    <div class="vs">vs</div>
                     <div class="player-side">
-                        <div style="width:35px;height:35px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.875em;font-weight:bold;">
+                        <div class="mini-avatar">
                             ${Utils.getInitials(match.player2)}
                         </div>
                         <span>${p2Name}</span>
@@ -263,7 +261,7 @@ const Matches = {
                 <div class="sets-container">
                     ${match.sets.map((set, setIdx) => `
                         <div class="set-row">
-                            <span style="color:var(--text-muted);font-size:0.875em;font-weight:500;">Set ${setIdx + 1}:</span>
+                            <span class="set-label">Set ${setIdx + 1}</span>
                             ${quickScoreMode ? `
                                 <div style="display:flex;align-items:center;gap:5px;">
                                     <button class="quick-score-btn" onclick="quickScoreAdjust(${idx}, ${setIdx}, 1, -1)" title="Snížit skóre">−</button>
@@ -274,7 +272,7 @@ const Matches = {
                                            id="match-${idx}-set-${setIdx}-p1">
                                     <button class="quick-score-btn" onclick="quickScoreAdjust(${idx}, ${setIdx}, 1, 1)" title="Zvýšit skóre">+</button>
                                 </div>
-                                <span style="text-align:center;font-weight:bold;font-size:1.2em;">:</span>
+                                <span class="set-colon">:</span>
                                 <div style="display:flex;align-items:center;gap:5px;">
                                     <button class="quick-score-btn" onclick="quickScoreAdjust(${idx}, ${setIdx}, 2, -1)" title="Snížit skóre">−</button>
                                     <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
@@ -290,40 +288,39 @@ const Matches = {
                                        placeholder="0"
                                        onchange="updateSet(${idx}, ${setIdx}, 1, this.value)"
                                        id="match-${idx}-set-${setIdx}-p1">
-                                <span style="text-align:center;">:</span>
+                                <span class="set-colon">:</span>
                                 <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
                                        value="${set.score2 !== null ? set.score2 : ''}"
                                        placeholder="0"
                                        onchange="updateSet(${idx}, ${setIdx}, 2, this.value)"
                                        id="match-${idx}-set-${setIdx}-p2">
                             `}
-                            ${Utils.validateSet(set.score1, set.score2) ? '' : '<span style="color:var(--danger);font-size:0.875em;">⚠️</span>'}
+                            ${Utils.validateSet(set.score1, set.score2) ? '' : '<span class="set-warn" title="Neobvyklé skóre setu">!</span>'}
                         </div>
                     `).join('')}
                 </div>
 
                 ${isPlaying && match.startTime ? `
-                    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:8px;margin-top:10px;">
-                        ⏱️ <span id="timer-${idx}" style="font-family:monospace;font-size:1.2em;font-weight:bold;color:var(--primary);">${Utils.calculateElapsed(match.startTime)}</span>
-                    </div>
+                    <div class="match-timer">Hraje se <span id="timer-${idx}">${Utils.calculateElapsed(match.startTime)}</span></div>
                 ` : ''}
 
-                <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-                    <textarea placeholder="Poznámky..." 
-                              onchange="updateNotes(${idx}, this.value)"
-                              style="min-height:60px;">${State.current.notes[idx] || ''}</textarea>
-                </div>
+                <details class="match-notes" ${State.current.notes[idx] ? 'open' : ''}>
+                    <summary>Poznámka</summary>
+                    <textarea placeholder="Např. skreč, zranění, kdo pískal…"
+                              onchange="updateNotes(${idx}, this.value)">${State.current.notes[idx] || ''}</textarea>
+                </details>
 
                 <div class="button-group">
                     ${!isPlaying ? `
-                        <button class="btn btn-warning" onclick="startMatch(${idx})">▶️ Začít zápas</button>
+                        <button class="btn btn-primary btn-sm" onclick="startMatch(${idx})">Začít na kurtu ${match.court}</button>
                     ` : ''}
                     ${isPlaying ? `
-                        <button class="btn btn-secondary" onclick="finishMatch(${idx})">✅ Ukončit</button>
-                        <button class="btn btn-outline" onclick="toggleQuickScoreMode(${idx})" title="Klávesové zkratky: Q/W pro hráče 1, A/S pro hráče 2">
-                            ⚡ ${quickScoreMode ? 'Normální' : 'Rychlý'} režim
+                        <button class="btn btn-primary btn-sm" onclick="finishMatch(${idx})">Uložit výsledek</button>
+                        <button class="btn btn-outline btn-sm" onclick="toggleQuickScoreMode(${idx})" title="Klávesové zkratky: Q/W pro hráče 1, A/S pro hráče 2">
+                            ${quickScoreMode ? 'Psát čísla' : 'Počítat +1'}
                         </button>
                     ` : ''}
+                    <button class="btn btn-outline btn-sm" onclick="Remote.showRefereeQR(${idx})" title="Rozhodčí zapíše výsledek z mobilu">QR pro rozhodčího</button>
                 </div>
             </div>
         `;
@@ -388,6 +385,7 @@ const Matches = {
         State.save();
         UI.render();
         Utils.showNotification(`Zápas ${idx + 1} ukončen`);
+        Courts.afterFinish(match.court);
     },
 
     edit(idx) {

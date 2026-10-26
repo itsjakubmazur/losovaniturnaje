@@ -16,6 +16,15 @@
 10. **Historie turnajů** - Ukládání dokončených turnajů
 11. **Pokročilé losování** - Respektování nasazení, vyvážení skupin
 
+### Nové (kurty, rozhodčí, monitor):
+
+12. **Tabule kurtů** – každý kurt jako malé hřiště; „Vyvolat další zápas“ pošle na volný kurt první zápas, jehož hráči zrovna nehrají (přednost mají odpočatí)
+13. **Automatické vyvolávání** – po dohrání zápasu jde na uvolněný kurt rovnou další; volitelně hlasové hlášení („Kurt 2. Novák proti Svobodovi.“)
+14. **Prezence** – u účastníka přepínač Přítomen / Chybí; nepřítomní se nelosují
+15. **Zápis výsledku rozhodčím přes QR** – rozhodčí naskenuje kód (na kurtu, na kartě zápasu nebo na vytištěném lístku), zadá sety v mobilu a výsledek se organizátorovi zapíše sám (vyžaduje živé sdílení přes Firebase)
+16. **Režim pro monitor** – odkaz `#live=…&tv=1` s velkými kurty, frontou a tabulkami pro televizi v hale
+17. **Tiskoviny** – zápasové lístky s QR, rozpis zápasů na nástěnku, čísla kurtů na A4
+
 ## 📦 Instalace:
 
 1. Stáhni `index.html`
