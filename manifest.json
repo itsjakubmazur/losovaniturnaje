@@ -4,8 +4,8 @@
   "description": "Správa turnajů",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#3b82f6",
-  "theme_color": "#3b82f6",
+  "background_color": "#eef1ec",
+  "theme_color": "#1e5a46",
   "orientation": "portrait-primary",
   "icons": [
     {

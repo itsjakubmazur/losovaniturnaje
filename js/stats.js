@@ -154,7 +154,7 @@ const Stats = {
         }
         const stats = {};
 
-        State.current.participants.forEach(p => {
+        State.current.participants.filter(p => !p.absent).forEach(p => {
             const name = p.name || p;
             stats[name] = {
                 player: name,

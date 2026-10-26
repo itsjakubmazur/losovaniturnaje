@@ -16,24 +16,14 @@ const UI = {
         let banner = '';
         if (State.readOnly) {
             banner = `
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            color: white;
-                            padding: 15px 20px;
-                            border-radius: 12px;
-                            margin-bottom: 20px;
-                            display: flex;
-                            align-items: center;
-                            justify-content: space-between;
-                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div class="readonly-banner">
                     <div>
-                        <strong>👁️ Režim zobrazení</strong>
-                        <p style="margin: 5px 0 0; opacity: 0.9; font-size: 0.9em;">
-                            Prohlížíte sdílený turnaj. Změny nebudou uloženy.
-                        </p>
+                        <strong>Prohlížíte sdílený turnaj</strong>
+                        <p>Změny se neuloží, dokud si turnaj neuložíte k sobě.</p>
                     </div>
-                    <button class="btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white;"
+                    <button class="btn btn-outline"
                             onclick="if(confirm('Uložit tento turnaj lokálně?')) { State.isShared = false; State.readOnly = false; State.save(); window.history.replaceState(null, '', window.location.pathname); Utils.showNotification('Turnaj uložen'); UI.render(); }">
-                        💾 Uložit lokálně
+                        Uložit k sobě
                     </button>
                 </div>
             `;
@@ -83,7 +73,7 @@ const UI = {
                 <div class="step-circle">3</div>
                 <div>${i18n.t('step.draw')}</div>
             </div>
-            <div class="step ${State.current.step === 'matches' ? 'active' : Utils.allMatchesCompleted() ? 'completed' : ''}" data-step="matches">
+            <div class="step ${State.current.step === 'matches' ? 'active' : State.current.matches.length > 0 && Utils.allMatchesCompleted() ? 'completed' : ''}" data-step="matches">
                 <div class="step-circle">4</div>
                 <div>${i18n.t('step.matches')}</div>
             </div>
@@ -100,14 +90,14 @@ const UI = {
             State.current.tournamentName || i18n.t('tournament.title');
         document.getElementById('tournament-subtitle').textContent =
             State.current.tournamentName ?
-                `${State.current.participants.length} ${i18n.currentLang === 'cs' ? 'účastníků' : 'participants'} • ${State.current.numCourts} ${State.current.numCourts === 1 ? 'kurt' : (i18n.currentLang === 'cs' ? 'kurty' : 'courts')} • ${Utils.formatDate(State.current.tournamentDate)}` :
+                `${Utils.formatDate(State.current.tournamentDate)}, ${State.current.participants.length} ${i18n.currentLang === 'cs' ? 'účastníků' : 'participants'}, ${State.current.numCourts} ${State.current.numCourts === 1 ? 'kurt' : (i18n.currentLang === 'cs' ? (State.current.numCourts < 5 ? 'kurty' : 'kurtů') : 'courts')}` :
                 i18n.t('tournament.subtitle');
     },
 
     renderSetup() {
         return `
             <div class="card">
-                <h2>⚙️ ${i18n.t('setup.title')}</h2>
+                <h2>${i18n.t('setup.title')}</h2>
 
                 <div class="input-row">
                     <div class="input-group">
@@ -121,50 +111,49 @@ const UI = {
                     </div>
                 </div>
 
-                <h3 style="margin-top: 30px; margin-bottom: 15px; color: var(--primary);">🏸 Typ disciplíny</h3>
+                <h3 class="section-title">Disciplína</h3>
 
                 <div class="input-group">
-                    <div class="system-options" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                    <div class="system-options system-options-3">
                         <div class="system-option ${State.current.disciplineType === 'singles' ? 'active' : ''}" data-discipline="singles">
-                            <div style="font-size:2.5em;">👤</div>
+                            ${UI.glyph('singles')}
                             <h3>Dvouhra</h3>
                             <p>Jednotlivci hrají proti sobě (1 vs 1)</p>
                         </div>
                         <div class="system-option ${State.current.disciplineType === 'doubles' ? 'active' : ''}" data-discipline="doubles">
-                            <div style="font-size:2.5em;">👥</div>
+                            ${UI.glyph('doubles')}
                             <h3>Čtyřhra</h3>
                             <p>Páry hrají proti sobě (2 vs 2)</p>
                         </div>
                         <div class="system-option ${State.current.disciplineType === 'mixed' ? 'active' : ''}" data-discipline="mixed">
-                            <div style="font-size:2.5em;">🔀</div>
+                            ${UI.glyph('mixed')}
                             <h3>Smíšené</h3>
                             <p>Dvouhry i čtyřhry dohromady</p>
                         </div>
                     </div>
                 </div>
 
-                <h3 style="margin-top: 30px; margin-bottom: 15px; color: var(--primary);">🎯 Herní systém</h3>
+                <h3 class="section-title">Herní systém</h3>
 
                 <div class="input-group">
-                    <label>${i18n.t('setup.system')}</label>
                     <div class="system-options">
                         <div class="system-option ${State.current.system === 'roundrobin' ? 'active' : ''}" data-system="roundrobin">
-                            <div style="font-size:2.5em;">🔄</div>
+                            ${UI.glyph('roundrobin')}
                             <h3>${i18n.t('system.roundrobin')}</h3>
                             <p>${i18n.currentLang === 'cs' ? 'Round-robin - všichni hrají proti všem' : 'Everyone plays against everyone'}</p>
                         </div>
                         <div class="system-option ${State.current.system === 'swiss' ? 'active' : ''}" data-system="swiss">
-                            <div style="font-size:2.5em;">🇨🇭</div>
+                            ${UI.glyph('swiss')}
                             <h3>${i18n.t('system.swiss')}</h3>
                             <p>${i18n.currentLang === 'cs' ? 'Postupné párování podle výsledků' : 'Progressive pairing by results'}</p>
                         </div>
                         <div class="system-option ${State.current.system === 'groups' ? 'active' : ''}" data-system="groups">
-                            <div style="font-size:2.5em;">👥</div>
+                            ${UI.glyph('groups')}
                             <h3>${i18n.t('system.groups')}</h3>
                             <p>${i18n.currentLang === 'cs' ? 'Skupinová fáze, pak vyřazovací pavouk' : 'Group stage, then knockout bracket'}</p>
                         </div>
                         <div class="system-option ${State.current.system === 'knockout' ? 'active' : ''}" data-system="knockout">
-                            <div style="font-size:2.5em;">🏆</div>
+                            ${UI.glyph('knockout')}
                             <h3>${i18n.t('system.knockout')}</h3>
                             <p>${i18n.currentLang === 'cs' ? 'Přímý pavouk od začátku' : 'Direct bracket from start'}</p>
                         </div>
@@ -178,28 +167,28 @@ const UI = {
                     </div>
                     <div class="input-group">
                         <label>Typ playoff</label>
-                        <div class="system-options" style="grid-template-columns:1fr 1fr;">
+                        <div class="system-options system-options-2">
                             <div class="system-option ${(State.current.playoffType || 'cross') === 'cross' ? 'active' : ''}" data-playoff-type="cross">
-                                <div style="font-size:1.8em;">⚔️</div>
+                                ${UI.glyph('cross')}
                                 <h3>Křížový pavouk</h3>
                                 <p>1. vs 2. z jiné skupiny, semifinále a finále</p>
                             </div>
                             <div class="system-option ${State.current.playoffType === 'positional' ? 'active' : ''}" data-playoff-type="positional">
-                                <div style="font-size:1.8em;">🏅</div>
+                                ${UI.glyph('positional')}
                                 <h3>Poziční finále</h3>
                                 <p>1. místa spolu, 2. místa spolu atd.</p>
                             </div>
                         </div>
                     </div>
                     ${(State.current.playoffType || 'cross') === 'cross' ? `
-                    <div class="input-group" style="background:var(--bg);border:2px solid var(--primary);border-radius:10px;padding:14px 16px;">
-                        <label style="font-weight:600;color:var(--primary);margin-bottom:10px;display:block;">Možnosti playoff</label>
-                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:10px;">
-                            <input type="checkbox" id="consolation-bracket" ${State.current.consolationBracket ? 'checked' : ''} style="width:auto;margin:0;accent-color:var(--primary);transform:scale(1.3);">
+                    <div class="input-group option-panel">
+                        <label class="option-panel-title">Možnosti playoff</label>
+                        <label class="check-row">
+                            <input type="checkbox" id="consolation-bracket" ${State.current.consolationBracket ? 'checked' : ''}>
                             <span><strong>Hrát o pořadí nepostupivších</strong><br><small style="color:var(--text-muted);">Hráči, kteří nepostoupí do playoff, odehrají vlastní mini-pavouk (3. místa spolu, 4. místa spolu atd.)</small></span>
                         </label>
-                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-                            <input type="checkbox" id="third-place-match" ${State.current.thirdPlaceMatch ? 'checked' : ''} style="width:auto;margin:0;accent-color:var(--primary);transform:scale(1.3);">
+                        <label class="check-row">
+                            <input type="checkbox" id="third-place-match" ${State.current.thirdPlaceMatch ? 'checked' : ''}>
                             <span><strong>Zápas o 3. místo</strong><br><small style="color:var(--text-muted);">Poražení ze semifinále odehrají zápas o bronz</small></span>
                         </label>
                     </div>
@@ -207,9 +196,9 @@ const UI = {
                 ` : ''}
                 ${State.current.system === 'knockout' ? `
                     <div class="input-group">
-                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-                            <input type="checkbox" id="third-place-match" ${State.current.thirdPlaceMatch ? 'checked' : ''} style="width:auto;margin:0;">
-                            Zápas o 3. místo po semifinále
+                        <label class="check-row">
+                            <input type="checkbox" id="third-place-match" ${State.current.thirdPlaceMatch ? 'checked' : ''}>
+                            <span><strong>Zápas o 3. místo</strong></span>
                         </label>
                         <small>Poražení ze semifinále odehrají zápas o bronz</small>
                     </div>
@@ -217,11 +206,11 @@ const UI = {
 
                 ${State.current.system === 'swiss' ? `
                     <div class="alert alert-info">
-                        ℹ️ Ve švýcarském systému se po každém kole párují hráči s podobným počtem bodů. Obvykle se hraje 5-7 kol.
+                        Ve švýcarském systému se po každém kole párují hráči s podobným počtem bodů. Obvykle se hraje 5-7 kol.
                     </div>
                 ` : ''}
 
-                <h3 style="margin-top: 30px; margin-bottom: 15px; color: var(--primary);">⚙️ Herní pravidla</h3>
+                <h3 class="section-title">Pravidla a bodování</h3>
 
                 <div class="input-row">
                     <div class="input-group">
@@ -277,9 +266,9 @@ const UI = {
 
                 <div class="input-row">
                     <div class="input-group">
-                        <label>
+                        <label class="check-row">
                             <input type="checkbox" id="overtime-scoring" ${State.current.overtimeScoring ? 'checked' : ''}>
-                            Bodovat prodloužení zvlášť
+                            <span><strong>Bodovat prodloužení zvlášť</strong></span>
                         </label>
                         <small>Vítěz v prodloužení dostane jiný počet bodů do tabulky</small>
                     </div>
@@ -295,7 +284,7 @@ const UI = {
                     ` : ''}
                 </div>
 
-                <h3 style="margin-top: 30px; margin-bottom: 15px; color: var(--primary);">⏱️ Časování</h3>
+                <h3 class="section-title">Kurty a čas</h3>
 
                 <div class="input-row">
                     <div class="input-group">
@@ -317,10 +306,10 @@ const UI = {
 
                 <div class="button-group">
                     <button class="btn btn-primary" onclick="goToParticipants()">
-                        ${i18n.currentLang === 'cs' ? 'Pokračovat k účastníkům →' : 'Continue to Participants →'}
+                        ${i18n.currentLang === 'cs' ? 'Pokračovat k účastníkům' : 'Continue to Participants'}
                     </button>
-                    <button class="btn btn-danger" onclick="if(State.reset()) UI.render()">
-                        🗑️ ${i18n.currentLang === 'cs' ? 'Nový turnaj' : 'New Tournament'}
+                    <button class="btn btn-ghost-danger" onclick="if(State.reset()) UI.render()">
+                        ${i18n.currentLang === 'cs' ? 'Začít nový turnaj' : 'New Tournament'}
                     </button>
                 </div>
             </div>
@@ -328,58 +317,64 @@ const UI = {
     },
 
     renderParticipants() {
+        const list = State.current.participants;
+        const present = list.filter(p => !p.absent).length;
         return `
             <div class="card">
-                <h2>👥 ${i18n.t('step.participants')} ${i18n.currentLang === 'cs' ? 'turnaje' : ''}</h2>
+                <div class="card-head">
+                    <h2>${i18n.t('step.participants')}</h2>
+                    ${list.length > 0 ? `<span class="card-head-meta">Přítomno <strong>${present}</strong> z ${list.length}</span>` : ''}
+                </div>
 
-                <div class="button-group">
-                    <button class="btn btn-primary" onclick="openParticipantModal()" aria-label="Přidat účastníka">
-                        ➕ ${i18n.t('participant.add')}
+                <div class="button-group button-group-top">
+                    <button class="btn btn-primary" onclick="openParticipantModal()">
+                        ${i18n.t('participant.add')}
                     </button>
                     <button class="btn btn-outline" onclick="showCSVImportModal()" title="Importovat více účastníků z CSV souboru">
-                        📥 ${i18n.currentLang === 'cs' ? 'Import CSV' : 'Import CSV'}
+                        Import z CSV
                     </button>
                     <button class="btn btn-outline" onclick="autoFillParticipants()">
-                        🎲 ${i18n.currentLang === 'cs' ? 'Demo účastníci' : 'Demo Participants'}
+                        Vložit ukázkové hráče
                     </button>
+                    ${list.length > 0 && present < list.length ? `
+                    <button class="btn btn-outline" onclick="markAllPresent()">Všichni přítomni</button>` : ''}
                 </div>
-                <div class="swipe-hint">← přejetím navigujte mezi kroky →</div>
 
-                ${State.current.participants.length > 0 ? `
-                    <div class="participants-grid" style="margin-top: 20px;">
-                        ${State.current.participants.map((p, i) => `
-                            <div class="participant-card">
+                ${list.length > 0 ? `
+                    <p class="hint">Prezence: kdo nepřišel, toho klepnutím na „Přítomen“ přepněte na „Chybí“. Do losu se nezapočítá.</p>
+                    <div class="participants-grid">
+                        ${list.map((p, i) => `
+                            <div class="participant-card ${p.absent ? 'is-absent' : ''}">
                                 <div class="participant-avatar">${Utils.getInitials(p)}</div>
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 600; margin-bottom: 4px;">${Utils.getPlayerDisplayName(p)}</div>
-                                    <div style="font-size: 0.875em; color: var(--text-muted);">
-                                        ${p.club || 'Bez klubu'} ${p.seed ? `• Nasazení: ${p.seed}` : ''}
+                                <div class="participant-info">
+                                    <div class="participant-name">${Utils.getPlayerDisplayName(p)}</div>
+                                    <div class="participant-meta">
+                                        ${p.club || 'Bez klubu'}${p.seed ? `, nasazení ${p.seed}` : ''}
                                     </div>
                                 </div>
-                                <div style="display: flex; gap: 5px;">
-                                    <button onclick="editParticipant(${i})" style="background:none;border:none;cursor:pointer;padding:5px;" title="Upravit">✏️</button>
-                                    <button onclick="removeParticipant(${i})" style="background:none;border:none;cursor:pointer;padding:5px;" title="Odebrat">🗑️</button>
+                                <button class="presence ${p.absent ? 'off' : 'on'}" onclick="togglePresence(${i})" aria-pressed="${!p.absent}" title="Přepnout prezenci">
+                                    ${p.absent ? 'Chybí' : 'Přítomen'}
+                                </button>
+                                <div class="participant-actions">
+                                    <button class="icon-btn icon-btn-sm" onclick="editParticipant(${i})" title="Upravit" aria-label="Upravit ${Utils.getPlayerDisplayNamePlain(p)}">${UI.glyph('edit')}</button>
+                                    <button class="icon-btn icon-btn-sm" onclick="removeParticipant(${i})" title="Odebrat" aria-label="Odebrat ${Utils.getPlayerDisplayNamePlain(p)}">${UI.glyph('trash')}</button>
                                 </div>
                             </div>
                         `).join('')}
                     </div>
-
-                    <div style="margin-top: 20px; padding: 15px; background: var(--bg); border-radius: 8px;">
-                        <strong>Celkem: ${State.current.participants.length} účastníků</strong>
-                    </div>
                 ` : `
-                    <div style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
-                        <div style="font-size: 4em; margin-bottom: 20px;">👥</div>
-                        <p>Zatím nebyli přidáni žádní účastníci</p>
+                    <div class="empty-state">
+                        <p><strong>Zatím tu nikdo není.</strong></p>
+                        <p>Přidejte hráče ručně, nahrajte je z CSV (třeba z přihlášek), nebo si turnaj vyzkoušejte s ukázkovými hráči.</p>
                     </div>
                 `}
 
                 <div class="button-group">
-                    <button class="btn btn-primary" onclick="goToDraw()" ${State.current.participants.length < 2 ? 'disabled' : ''}>
-                        ${i18n.currentLang === 'cs' ? 'Pokračovat na losování →' : 'Continue to Draw →'}
+                    <button class="btn btn-primary" onclick="goToDraw()" ${present < 2 ? 'disabled' : ''}>
+                        ${i18n.currentLang === 'cs' ? 'Pokračovat na losování' : 'Continue to Draw'}
                     </button>
                     <button class="btn btn-outline" onclick="goToSetup()">
-                        ← ${i18n.t('btn.back')}
+                        ${i18n.t('btn.back')}
                     </button>
                 </div>
             </div>
@@ -387,65 +382,64 @@ const UI = {
     },
 
     renderDraw() {
+        const present = State.current.participants.filter(p => !p.absent).length;
         return `
             <div class="card">
-                <h2>🎲 ${i18n.t('step.draw')}</h2>
-                
-                <div class="alert alert-info">
-                    <strong>Systém:</strong> ${Utils.getSystemName()} • 
-                    <strong>Účastníků:</strong> ${State.current.participants.length} • 
-                    <strong>Kurtů:</strong> ${State.current.numCourts}
-                </div>
+                <h2>${i18n.t('step.draw')}</h2>
+
+                <dl class="facts">
+                    <div><dt>Systém</dt><dd>${Utils.getSystemName()}</dd></div>
+                    <div><dt>Hráčů v losu</dt><dd>${present}</dd></div>
+                    <div><dt>Kurtů</dt><dd>${State.current.numCourts}</dd></div>
+                </dl>
 
                 ${State.current.groups.length > 0 ? `
                     ${State.current.matches.length === 0 ? `
-                    <div style="margin: 10px 0 15px; padding: 10px 14px; background: var(--bg); border-radius: 8px; font-size: 0.88em; color: var(--text-muted); border-left: 3px solid var(--primary);">
-                        💡 <strong>Tip:</strong> Před vygenerováním zápasů můžete hráče přesouvat mezi skupinami tlačítkem ↔ vedle jejich jména.
-                    </div>
+                    <p class="hint">Před vygenerováním zápasů můžete hráče přesouvat mezi skupinami tlačítkem ↔ u jména.</p>
                     ` : ''}
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0;">
+                    <div class="groups-grid">
                         ${State.current.groups.map((group, i) => {
                             const letter = String.fromCharCode(65 + i);
                             const color = UI.getGroupColor(letter);
                             const canMove = State.current.matches.length === 0;
                             return `
-                            <div style="background: var(--bg); padding: 0; border-radius: 12px; border-top: 4px solid ${color}; overflow: hidden;">
-                                <div style="background: ${color}; color: white; padding: 10px 15px; font-weight: bold; font-size: 0.95em;">
-                                    🏸 Skupina ${letter} (${group.length} hráčů)
-                                </div>
-                                <div style="padding: 15px;">
+                            <div class="group-box" style="--group:${color};">
+                                <div class="group-box-head"><span class="group-letter">${letter}</span> Skupina ${letter}<span class="group-count">${group.length}</span></div>
+                                <ol class="group-list">
                                 ${group.map((p, pi) => `
-                                    <div style="padding: 8px 10px; margin: 5px 0; background: var(--card); border-radius: 6px; display: flex; align-items: center; gap: 8px;">
-                                        <div style="width: 24px; height: 24px; border-radius: 50%; background: ${color}; color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75em; font-weight: bold; flex-shrink: 0;">${Utils.getInitials(p)}</div>
-                                        <span style="flex:1;">${Utils.getPlayerDisplayName(p)}</span>
-                                        ${p.seed ? `<span style="font-size:0.75em;color:var(--text-muted);">💪 ${p.seed}</span>` : ''}
-                                        ${canMove ? `<button onclick="openMovePlayerModal(${i}, ${pi})" title="Přesunout do jiné skupiny" style="background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:2px 6px;font-size:0.8em;color:var(--text-muted);">↔</button>` : ''}
-                                    </div>
+                                    <li>
+                                        <span class="group-player">${Utils.getPlayerDisplayName(p)}</span>
+                                        ${p.seed ? `<span class="seed-chip" title="Nasazení">${p.seed}</span>` : ''}
+                                        ${canMove ? `<button class="icon-btn icon-btn-sm" onclick="openMovePlayerModal(${i}, ${pi})" title="Přesunout do jiné skupiny" aria-label="Přesunout">↔</button>` : ''}
+                                    </li>
                                 `).join('')}
-                                </div>
+                                </ol>
                             </div>`;
                         }).join('')}
                     </div>
                 ` : ''}
 
                 <div class="button-group">
-                    <button class="btn btn-secondary" onclick="performDraw()">
-                        🎲 ${State.current.rounds.length > 0 ? (i18n.currentLang === 'cs' ? 'Přelosovat' : 'Redraw') : (i18n.currentLang === 'cs' ? 'Losovat' : 'Draw')}
-                    </button>
                     ${State.current.matches.length > 0 ? `
                     <button class="btn btn-primary" onclick="goToMatches()">
-                        ⚽ ${i18n.currentLang === 'cs' ? 'Pokračovat na zápasy →' : 'Continue to Matches →'}
+                        ${i18n.currentLang === 'cs' ? 'Pokračovat na zápasy' : 'Continue to Matches'}
+                    </button>
+                    <button class="btn btn-secondary" onclick="performDraw()">
+                        ${i18n.currentLang === 'cs' ? 'Přelosovat' : 'Redraw'}
                     </button>
                     <button class="btn btn-secondary" onclick="if(confirm('${i18n.currentLang === 'cs' ? 'Přegenerování smaže všechna zadaná skóre. Opravdu pokračovat?' : 'Regenerating will erase all entered scores. Continue?'}')) Matches.generate()">
-                        🔄 ${i18n.currentLang === 'cs' ? 'Přegenerovat zápasy' : 'Regenerate Matches'}
+                        ${i18n.currentLang === 'cs' ? 'Přegenerovat zápasy' : 'Regenerate Matches'}
                     </button>
                     ` : `
-                    <button class="btn btn-primary" onclick="Matches.generate()">
-                        ⚽ ${i18n.currentLang === 'cs' ? 'Vygenerovat zápasy →' : 'Generate Matches →'}
+                    <button class="btn ${State.current.system === 'groups' && State.current.groups.length === 0 ? 'btn-primary' : 'btn-secondary'}" onclick="performDraw()">
+                        ${State.current.rounds.length > 0 || State.current.groups.length > 0 ? (i18n.currentLang === 'cs' ? 'Přelosovat' : 'Redraw') : (i18n.currentLang === 'cs' ? 'Losovat' : 'Draw')}
+                    </button>
+                    <button class="btn ${State.current.system === 'groups' && State.current.groups.length === 0 ? 'btn-secondary' : 'btn-primary'}" onclick="Matches.generate()">
+                        ${i18n.currentLang === 'cs' ? 'Vygenerovat zápasy' : 'Generate Matches'}
                     </button>
                     `}
                     <button class="btn btn-outline" onclick="goToParticipants()">
-                        ← ${i18n.t('btn.back')}
+                        ${i18n.t('btn.back')}
                     </button>
                 </div>
             </div>
@@ -457,9 +451,8 @@ const UI = {
             return `
                 <div class="card">
                     <div style="text-align: center; padding: 60px 20px;">
-                        <div style="font-size: 4em; margin-bottom: 20px;">⚽</div>
-                        <p style="color: var(--text-muted);">Nejprve vygenerujte zápasy</p>
-                        <button class="btn btn-primary" onclick="goToDraw()" style="margin-top: 20px;">← Zpět</button>
+                        <p style="color: var(--text-muted);">Zápasy ještě nejsou vygenerované.</p>
+                        <button class="btn btn-primary" onclick="goToDraw()" style="margin-top: 20px;">Přejít na losování</button>
                     </div>
                 </div>
             `;
@@ -470,12 +463,11 @@ const UI = {
         const playing = State.current.matches.filter(m => m.playing).length;
         const progress = total > 0 ? (completed / total) * 100 : 0;
 
-        const queue = Utils.calculateQueue();
         const estimatedEnd = Utils.calculateEstimatedTime();
 
         return `
             <div class="card">
-                <h2>⚽ ${i18n.t('step.matches')}</h2>
+                <h2>${i18n.t('step.matches')}</h2>
 
                 <div class="stats-grid">
                     <div class="stat-card">
@@ -503,20 +495,21 @@ const UI = {
                 <div class="progress-bar-wrapper">
                     <div class="progress-label">
                         <span>${i18n.currentLang === 'cs' ? 'Průběh turnaje' : 'Tournament Progress'}</span>
-                        <span>${completed}/${total} zápasů (${Math.round(progress)}%)</span>
+                        <span>${completed} z ${total} zápasů</span>
                     </div>
                     <div class="progress-bar" role="progressbar" aria-valuenow="${Math.round(progress)}" aria-valuemin="0" aria-valuemax="100">
                         <div class="progress-fill" style="width: ${progress}%"></div>
                     </div>
                 </div>
 
+                ${Courts.renderBoard()}
+
                 ${(() => {
                     const conflicts = detectCourtConflicts();
                     if (conflicts.length === 0) return '';
                     return `<div class="conflict-warning" role="alert">
-                        <span class="conflict-icon">⚠️</span>
                         <div>
-                            <strong>Upozornění na konflikt!</strong>
+                            <strong>Hráč je na dvou kurtech zároveň</strong>
                             ${conflicts.map(c => `<div style="font-size:0.875em;color:var(--danger);">
                                 Hráč <strong>${c.players.join(', ')}</strong> hraje zároveň v zápasech č. ${c.match1 + 1} a ${c.match2 + 1}
                             </div>`).join('')}
@@ -548,7 +541,7 @@ const UI = {
                         .filter(r => !generatedRounds.includes(r));
                     if (pendingRounds.length === 0) return '';
                     return `<div class="card">
-                        <h3 style="margin:0 0 12px;">🥈 Zápasy o pořadí poražených</h3>
+                        <h3 style="margin:0 0 12px;">Zápasy o pořadí poražených</h3>
                         <p style="color:var(--text-muted);margin:0 0 15px;font-size:0.9em;">
                             Můžete vygenerovat zápasy pro poražené z jednotlivých kol. Rozhodněte se kdykoliv v průběhu turnaje.
                         </p>
@@ -559,7 +552,7 @@ const UI = {
                                 const posStart = Math.pow(2, totalRounds - r - 1) + 1;
                                 const lbl = posStart === posEnd ? `O ${posStart}. místo` : `O ${posStart}.-${posEnd}. místo`;
                                 return `<button class="btn btn-secondary" onclick="generateLosersBracketRound(${r})">
-                                    🥈 Generovat ${lbl}
+                                    Generovat ${lbl}
                                 </button>`;
                             }).join('')}
                         </div>
@@ -567,23 +560,6 @@ const UI = {
                 })()}
 
                 ${State.current.system === 'groups' && !State.current.playoffBracket ? this.renderGroupStandings() : ''}
-
-                ${queue.length > 0 ? `
-                    <div class="queue-section">
-                        <div style="font-weight: 600; margin-bottom: 15px; color: var(--primary);">📋 Fronta čekajících (${queue.length})</div>
-                        <div class="queue-list">
-                            ${queue.slice(0, 5).map((item, i) => `
-                                <div class="queue-item">
-                                    <div class="queue-position">${i + 1}</div>
-                                    <div style="flex: 1;">
-                                        <strong>${Utils.getPlayerDisplayName(item.player1)}</strong> vs <strong>${Utils.getPlayerDisplayName(item.player2)}</strong>
-                                    </div>
-                                    <div style="color: var(--text-muted); font-size: 0.875em;">${item.eta}</div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                ` : ''}
 
                 <div id="matches-content">
                     ${State.current.rounds.map((_, roundIndex) => {
@@ -598,8 +574,8 @@ const UI = {
                             <div class="round-section">
                                 <div class="round-header">
                                     <h3>${roundName}</h3>
-                                    <span style="background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 12px; font-size: 0.875em;">
-                                        ${roundCompleted ? '✅ Dokončeno' : `${roundMatches.filter(m => m.completed).length}/${roundMatches.length}`}
+                                    <span class="round-count ${roundCompleted ? 'is-done' : ''}">
+                                        ${roundCompleted ? 'Dohráno' : `${roundMatches.filter(m => m.completed).length} z ${roundMatches.length}`}
                                     </span>
                                 </div>
                                 <div class="matches-grid">
@@ -614,24 +590,24 @@ const UI = {
                 ${State.current.system === 'swiss' ? `
                     <button class="btn btn-secondary" onclick="Swiss.generateNextRound()" 
                             ${State.current.matches.filter(m => m.round === State.current.swissRound - 1).every(m => m.completed) ? '' : 'disabled'}>
-                        🇨🇭 Generovat další kolo ${State.current.swissRound + 1}
+                        Generovat ${State.current.swissRound + 1}. kolo
                     </button>
                 ` : ''}
                 ${State.current.playoffBracket && State.current.playoffBracket.type !== 'positional' && State.current.playoffBracket.currentRound < State.current.playoffBracket.totalRounds - 1 ? `
                     <button class="btn btn-secondary" onclick="advancePlayoffRound()" id="advance-playoff-btn"
                             ${State.current.matches.filter(m => m.knockoutRound === State.current.playoffBracket.currentRound).every(m => m.completed) ? '' : 'disabled'}>
-                        🏆 Generovat další fázi playoff
+                        Generovat další fázi playoff
                     </button>
                 ` : ''}
                 ${State.current.system === 'groups' && !State.current.playoffBracket && State.current.matches.filter(m => !m.isPlayoff).every(m => m.completed) && State.current.matches.filter(m => !m.isPlayoff).length > 0 ? `
                     <button class="btn btn-warning" onclick="if(Playoff.generateFromGroups()) UI.render();">
-                        🏆 ${State.current.playoffType === 'positional' ? 'Vygenerovat poziční finále' : 'Vygenerovat playoff pavouk'}
+                        ${State.current.playoffType === 'positional' ? 'Vygenerovat poziční finále' : 'Vygenerovat playoff pavouk'}
                     </button>
                 ` : ''}
                     <button class="btn btn-primary" onclick="goToResults()">
-                        ${i18n.currentLang === 'cs' ? 'Zobrazit výsledky →' : 'View Results →'}
+                        ${i18n.currentLang === 'cs' ? 'Zobrazit výsledky' : 'View Results'}
                     </button>
-                    <button class="btn btn-outline" onclick="goToDraw()">← ${i18n.t('btn.back')}</button>
+                    <button class="btn btn-outline" onclick="goToDraw()">${i18n.t('btn.back')}</button>
                 </div>
             </div>
         `;
@@ -659,7 +635,7 @@ const UI = {
                 <div class="sp-podium">
                     ${podiumItems.map(p => `
                         <div class="sp-podium-card sp-podium-pos-${p.pos}">
-                            <div class="sp-podium-medal-icon">${p.medal}</div>
+                            <div class="sp-podium-medal-icon">${p.pos + 1}</div>
                             <div class="sp-podium-name">${p.name}</div>
                             <div class="sp-podium-label">${p.label}</div>
                             <div class="sp-podium-bar sp-podium-bar-${p.pos}"></div>
@@ -703,12 +679,14 @@ const UI = {
 
         const buttons = `
             <div class="button-group">
-                <button class="btn btn-secondary" onclick="Export.toJSON()">📥 JSON</button>
-                <button class="btn btn-secondary" onclick="Export.toCSV()">📊 CSV</button>
-                <button class="btn btn-outline" onclick="goToMatches()">← ${i18n.t('btn.back')}</button>
                 ${allCompleted ? `
-                    <button class="btn btn-primary" onclick="saveToHistory()">💾 ${i18n.currentLang === 'cs' ? 'Uložit do historie' : 'Save to History'}</button>
-                    <button class="btn btn-danger" onclick="if(State.reset()) UI.render()">🆕 ${i18n.currentLang === 'cs' ? 'Nový turnaj' : 'New Tournament'}</button>
+                    <button class="btn btn-primary" onclick="saveToHistory()">${i18n.currentLang === 'cs' ? 'Uložit do historie' : 'Save to History'}</button>
+                ` : ''}
+                <button class="btn btn-secondary" onclick="Export.toCSV()">Stáhnout CSV pro Excel</button>
+                <button class="btn btn-secondary" onclick="Export.toJSON()">Stáhnout JSON</button>
+                <button class="btn btn-outline" onclick="goToMatches()">${i18n.t('btn.back')}</button>
+                ${allCompleted ? `
+                    <button class="btn btn-ghost-danger" onclick="if(State.reset()) UI.render()">${i18n.currentLang === 'cs' ? 'Začít nový turnaj' : 'New Tournament'}</button>
                 ` : ''}
             </div>`;
 
@@ -725,13 +703,13 @@ const UI = {
 
             return `
                 <div class="card">
-                    <h2>🏆 ${i18n.t('step.results')}</h2>
+                    <h2>${i18n.t('step.results')}</h2>
                     ${allCompleted ? `
-                        <div class="alert alert-success">🎉 Turnaj dokončen!</div>
+                        <div class="alert alert-success">Turnaj je dohraný. Gratulujeme vítězům.</div>
                         ${this.renderPodium()}
                     ` : `
                         <div class="alert alert-warning">
-                            ⚠️ Turnaj není dokončen (${completed}/${total} zápasů)
+                            Zbývá dohrát ${total - completed} z ${total} zápasů. Pořadí je zatím průběžné.
                         </div>
                     `}
                     ${statsGrid}
@@ -745,42 +723,42 @@ const UI = {
 
         return `
             <div class="card">
-                <h2>🏆 ${i18n.t('step.results')}</h2>
+                <h2>${i18n.t('step.results')}</h2>
 
                 ${allCompleted ? `
-                    <div class="alert alert-success">🎉 Turnaj dokončen!</div>
+                    <div class="alert alert-success">Turnaj je dohraný. Gratulujeme vítězům.</div>
                     ${this.renderPodium()}
                 ` : `
                     <div class="alert alert-warning">
-                        ⚠️ Turnaj není dokončen (${completed}/${total} zápasů)
+                        Zbývá dohrát ${total - completed} z ${total} zápasů. Pořadí je zatím průběžné.
                     </div>
                 `}
 
                 ${statsGrid}
 
-                <table>
+                <div class="table-wrap"><table class="standings">
                     <thead>
                         <tr>
-                            <th>${i18n.t('results.position')}</th><th>${i18n.t('results.player')}</th><th>${i18n.currentLang === 'cs' ? 'Z' : 'M'}</th><th>${i18n.currentLang === 'cs' ? 'V' : 'W'}</th><th>${i18n.currentLang === 'cs' ? 'R' : 'D'}</th><th>${i18n.currentLang === 'cs' ? 'P' : 'L'}</th>
+                            <th>${i18n.t('results.position')}</th><th class="name-cell">${i18n.t('results.player')}</th><th>${i18n.currentLang === 'cs' ? 'Z' : 'M'}</th><th>${i18n.currentLang === 'cs' ? 'V' : 'W'}</th><th>${i18n.currentLang === 'cs' ? 'R' : 'D'}</th><th>${i18n.currentLang === 'cs' ? 'P' : 'L'}</th>
                             <th>${i18n.t('results.sets')}</th><th>${i18n.currentLang === 'cs' ? Utils.scoreUnitLabel() + ' v setech' : 'Set Points'}</th><th>${i18n.t('results.points')}</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${State.current.standings.map((s, i) => `
                             <tr>
-                                <td>${i < 3 ? `<span class="position-badge position-${i + 1}">${i + 1}</span>` : i + 1}</td>
-                                <td><strong>${Utils.getPlayerDisplayName(s.playerRef || s.player)}</strong></td>
+                                <td><span class="position-badge ${i < 3 ? `position-${i + 1}` : ''}">${i + 1}</span></td>
+                                <td class="name-cell">${Utils.getPlayerDisplayName(s.playerRef || s.player)}</td>
                                 <td>${s.played}</td>
                                 <td>${s.wins}</td>
                                 <td>${s.draws}</td>
                                 <td>${s.losses}</td>
                                 <td>${s.setsWon}:${s.setsLost}</td>
                                 <td>${s.pointsWon}:${s.pointsLost}</td>
-                                <td><strong>${s.points}</strong></td>
+                                <td class="pts-cell">${s.points}</td>
                             </tr>
                         `).join('')}
                     </tbody>
-                </table>
+                </table></div>
 
                 ${buttons}
             </div>
@@ -793,9 +771,8 @@ const UI = {
         if (!State.current.tournamentName && !State.current.matches.length) {
             return `
                 <div style="text-align:center;padding:60px 20px;color:var(--text-muted);">
-                    <div style="font-size:3em;margin-bottom:15px;">📡</div>
-                    <div style="font-size:1.1em;font-weight:500;margin-bottom:8px;">Připojuji se k živému turnaji...</div>
-                    <div style="font-size:0.875em;">Prosím čekejte...</div>
+                    <div style="font-size:1.1em;font-weight:600;margin-bottom:8px;">Připojuji se k turnaji…</div>
+                    <div style="font-size:0.875em;">Pokud se nic nenačte, organizátor možná sdílení ukončil.</div>
                 </div>
             `;
         }
@@ -805,7 +782,7 @@ const UI = {
         const allMatches = State.current.matches;
         const playingMatches = allMatches.filter(m => m.playing);
         const pendingMatches = allMatches.filter(m => !m.completed && !m.playing);
-        const upcomingMatches = pendingMatches.slice(0, numCourts);
+        const upcomingMatches = Courts.queue(Math.max(numCourts * 2, 4)).map(q => q.m);
         const completed = allMatches.filter(m => m.completed).length;
         const total = allMatches.length;
         const progress = total > 0 ? Math.round(completed / total * 100) : 0;
@@ -823,23 +800,22 @@ const UI = {
                 <div class="spectator-header-left">
                     <div class="spectator-tournament-name">${State.current.tournamentName || 'Turnaj'}</div>
                     <div class="spectator-header-meta">
-                        ${tournamentDate ? `📅 ${tournamentDate} &nbsp;·&nbsp;` : ''}
-                        ${numCourts} ${numCourts === 1 ? 'kurt' : numCourts < 5 ? 'kurty' : 'kurtů'}
-                        &nbsp;·&nbsp; ${completed}/${total} zápasů
+                        ${tournamentDate ? `${tournamentDate}, ` : ''}${numCourts} ${numCourts === 1 ? 'kurt' : numCourts < 5 ? 'kurty' : 'kurtů'}
                     </div>
                 </div>
                 <div class="spectator-header-right">
-                    ${isComplete ? '<span class="spectator-complete-badge">🏆 Turnaj dokončen</span>' : ''}
-                    <div class="spectator-progress-wrap">
+                    ${isComplete ? '<span class="spectator-complete-badge">Turnaj dohrán</span>' : '<span class="spectator-live-badge"><span class="live-dot"></span>Živě</span>'}
+                    <div class="spectator-progress-wrap" title="${completed} z ${total} zápasů">
                         <div class="spectator-progress-bar-wrap">
                             <div class="spectator-progress-fill" style="width:${progress}%"></div>
                         </div>
-                        <span class="spectator-progress-pct">${progress}%</span>
+                        <span class="spectator-progress-pct">${completed}/${total}</span>
                     </div>
-                    <button class="btn spectator-save-btn"
-                        onclick="if(confirm('Uložit tento turnaj lokálně pro editaci?')){State.isShared=false;State.readOnly=false;State.save();window.history.replaceState(null,'',window.location.pathname);Utils.showNotification('Turnaj uložen');UI.render();}">
-                        💾 Uložit a upravovat
-                    </button>
+                    ${State.tvMode ? `<span class="tv-clock" id="tv-clock">${new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}</span>` : `
+                    <button class="btn btn-outline spectator-save-btn"
+                        onclick="if(confirm('Uložit tento turnaj k sobě a upravovat ho?')){State.isShared=false;State.readOnly=false;State.save();window.history.replaceState(null,'',window.location.pathname);Utils.showNotification('Turnaj uložen');UI.render();}">
+                        Uložit k sobě
+                    </button>`}
                 </div>
             </div>`;
 
@@ -858,9 +834,7 @@ const UI = {
         if (hasGroups) {
             standingsContent += `
                 <div style="margin-top:${hasPlayoff ? '16px' : '0'};">
-                    <div class="spectator-col-title spectator-col-standings" style="margin-bottom:8px;">
-                        📊 Skupinová fáze
-                    </div>
+                    ${hasPlayoff ? '<h4 class="spectator-subtitle">Skupinová fáze</h4>' : ''}
                     ${this.renderSpectatorGroupStandings()}
                 </div>`;
         }
@@ -871,37 +845,27 @@ const UI = {
         return `
             <div class="spectator-view">
                 ${header}
+                <section class="spectator-courts" aria-label="Kurty">
+                    <h3 class="spectator-col-title">Na kurtech <span class="spectator-badge">${playingMatches.length}</span></h3>
+                    ${Courts.renderSpectatorBoard()}
+                </section>
                 <div class="spectator-dashboard">
                     <div class="spectator-col">
-                        <div class="spectator-col-title spectator-col-live">
-                            ${playingMatches.length > 0
-                                ? '<span class="live-indicator"><span class="live-dot"></span> LIVE</span>'
-                                : '🎾'}
-                            Probíhají zápasy
-                            <span class="spectator-badge">${playingMatches.length}</span>
-                        </div>
-                        ${playingMatches.length > 0
-                            ? playingMatches.map(m => this.renderSpectatorMatchCard(m, 'live')).join('')
-                            : '<div class="spectator-empty">Momentálně žádný zápas neprobíhá</div>'
-                        }
-                    </div>
-                    <div class="spectator-col">
-                        <div class="spectator-col-title spectator-col-next">
-                            ⏭ Připravuje se na kurt
+                        <h3 class="spectator-col-title spectator-col-next">
+                            Na řadě
                             <span class="spectator-badge">${upcomingMatches.length}</span>
-                        </div>
+                        </h3>
                         ${upcomingMatches.length > 0
                             ? upcomingMatches.map((m, i) => this.renderSpectatorMatchCard(m, 'next', i + 1)).join('')
-                            : '<div class="spectator-empty">Žádné čekající zápasy</div>'
+                            : '<div class="spectator-empty">Žádné další zápasy</div>'
                         }
                     </div>
-                    <div class="spectator-col">
-                        <div class="spectator-col-title spectator-col-standings">
+                    <div class="spectator-col spectator-col-wide">
+                        <h3 class="spectator-col-title spectator-col-standings">
                             ${hasPlayoff
-                                ? (hasGroups ? '🏆 Playoff &amp; skupiny' : '🏆 Playoff')
-                                : hasGroups ? '📊 Tabulky skupin' : '📊 Aktuální tabulka'}
-                            <span class="spectator-badge">${State.current.standings.length}</span>
-                        </div>
+                                ? (hasGroups ? 'Playoff a skupiny' : 'Playoff')
+                                : hasGroups ? 'Tabulky skupin' : 'Průběžné pořadí'}
+                        </h3>
                         ${standingsContent}
                     </div>
                 </div>
@@ -914,7 +878,7 @@ const UI = {
         const bracketPanel = hasPlayoff ? `
             <div class="spectator-col sp-result-col">
                 <div class="spectator-col-title spectator-col-standings">
-                    🏆 ${State.current.playoffBracket.type === 'positional' ? 'Finálové umístění' : 'Playoff pavouk'}
+                    ${State.current.playoffBracket.type === 'positional' ? 'Finálové umístění' : 'Playoff pavouk'}
                 </div>
                 ${State.current.playoffBracket.type === 'positional'
                     ? this.renderSpectatorPositionalPlayoff()
@@ -923,19 +887,19 @@ const UI = {
 
         const groupsPanel = hasGroups ? `
             <div class="spectator-col sp-result-col">
-                <div class="spectator-col-title spectator-col-standings">📊 Skupinová fáze</div>
+                <div class="spectator-col-title spectator-col-standings">Skupinová fáze</div>
                 ${this.renderSpectatorGroupStandings()}
             </div>` : '';
 
         const standingsPanel = !hasPlayoff && !hasGroups ? `
             <div class="spectator-col sp-result-col">
-                <div class="spectator-col-title spectator-col-standings">📊 Konečné pořadí</div>
+                <div class="spectator-col-title spectator-col-standings">Konečné pořadí</div>
                 ${this.renderSpectatorStandings()}
             </div>` : '';
 
         const mainStandingsPanel = (hasPlayoff || hasGroups) ? `
             <div class="spectator-col sp-result-col">
-                <div class="spectator-col-title spectator-col-standings">📋 Konečné pořadí</div>
+                <div class="spectator-col-title spectator-col-standings">Konečné pořadí</div>
                 ${this.renderSpectatorStandings()}
             </div>` : '';
 
@@ -966,13 +930,13 @@ const UI = {
         return `
             <div class="sp-match-card sp-match-${type}">
                 <div class="sp-match-meta">
-                    <span class="sp-court-badge">Kurt ${match.court}</span>
+                    ${type === 'next' ? `<span class="sp-next-pos">${position}.</span>` : ''}
+                    ${type === 'live' ? `<span class="sp-court-badge">Kurt ${match.court}</span>` : ''}
                     ${match.group ? `<span class="sp-group-badge" style="color:${UI.getGroupColor(match.group)};border-color:${UI.getGroupColor(match.group)}20;">Sk. ${match.group}</span>` : ''}
                     ${match.roundName ? `<span class="sp-round-label">${match.roundName}</span>` : ''}
                     ${type === 'live' && match.startTime
-                        ? `<span class="sp-timer" id="spectator-timer-${idx}">⏱ ${Utils.calculateElapsed(match.startTime)}</span>`
+                        ? `<span class="sp-timer" id="spectator-timer-${idx}">${Utils.calculateElapsed(match.startTime)}</span>`
                         : ''}
-                    ${type === 'next' ? `<span class="sp-next-pos">#${position}</span>` : ''}
                 </div>
                 <div class="sp-match-body">
                     <div class="sp-player">${p1Name}</div>
@@ -1004,7 +968,7 @@ const UI = {
                 <tbody>
                     ${standings.map((s, i) => `
                         <tr class="${i === 0 ? 'sp-gold' : i === 1 ? 'sp-silver' : i === 2 ? 'sp-bronze' : ''}">
-                            <td class="sp-pos">${i < 3 ? ['🥇','🥈','🥉'][i] : i + 1}</td>
+                            <td class="sp-pos"><span class="position-badge ${i < 3 ? `position-${i + 1}` : ''}">${i + 1}</span></td>
                             <td class="sp-name">${Utils.getPlayerDisplayName(s.playerRef || s.player)}</td>
                             <td>${s.played}</td>
                             <td class="sp-wins">${s.wins}</td>
@@ -1027,7 +991,7 @@ const UI = {
             const color = UI.getGroupColor(letter);
             return `
                 <div class="sp-group-block">
-                    <div class="sp-group-header" style="background:${color};">Skupina ${letter}</div>
+                    <div class="sp-group-header" style="--group:${color};"><span class="group-letter">${letter}</span>Skupina ${letter}</div>
                     <table class="sp-table">
                         <thead><tr><th>#</th><th class="sp-col-name">Hráč</th><th>Z</th><th>V</th><th>Sety</th><th>${Utils.scoreUnitLabel()}</th><th>B</th></tr></thead>
                         <tbody>
@@ -1094,7 +1058,7 @@ const UI = {
                 `).join('')}
                 ${thirdPlaceMatch ? `
                     <div class="sp-bracket-round">
-                        <div class="sp-bracket-round-name">🥉 O 3. místo</div>
+                        <div class="sp-bracket-round-name">O 3. místo</div>
                         ${renderSpBracketMatch(thirdPlaceMatch)}
                     </div>
                 ` : ''}
@@ -1115,7 +1079,7 @@ const UI = {
                 const { name, matches } = tiers[tier];
                 return `
                     <div class="sp-bracket-round">
-                        <div class="sp-bracket-round-name">🏅 ${name}</div>
+                        <div class="sp-bracket-round-name">${name}</div>
                         ${matches.map(m => {
                             const p1 = Utils.getPlayerDisplayName(m.player1);
                             const p2 = Utils.getPlayerDisplayName(m.player2);
@@ -1137,7 +1101,7 @@ const UI = {
         return `
             <div style="background: var(--bg); padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
                 <div style="flex: 1; min-width: 200px;">
-                    <input type="text" id="match-search" placeholder="🔍 Vyhledat hráče..."
+                    <input type="text" id="match-search" placeholder="Hledat hráče"
                            style="width: 100%; padding: 10px 15px; margin: 0;"
                            oninput="filterMatches()">
                 </div>
@@ -1164,57 +1128,51 @@ const UI = {
         if (!groupStandings) return '';
 
         return `
-            <div style="background: var(--bg); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-                <h3 style="color: var(--primary); margin-bottom: 20px;">📊 Tabulky skupin</h3>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
+            <section class="group-standings">
+                <h3 class="section-title">Tabulky skupin</h3>
+                <div class="groups-grid groups-grid-wide">
                     ${Object.keys(groupStandings).map(groupLetter => {
                         const standings = groupStandings[groupLetter];
                         const groupColor = UI.getGroupColor(groupLetter);
                         return `
-                            <div style="background: var(--card); border-radius: 12px; overflow: hidden; border: 2px solid var(--border); border-top: 4px solid ${groupColor};" class="group-color-${groupLetter}">
-                                <div style="background: ${groupColor}; color: white; padding: 12px 15px; font-weight: bold;" class="group-header-${groupLetter}">
-                                    🏸 Skupina ${groupLetter}
-                                </div>
-                                <div style="overflow-x: auto;">
-                                    <table style="width: 100%; margin: 0;">
+                            <div class="group-box" style="--group:${groupColor};">
+                                <div class="group-box-head"><span class="group-letter">${groupLetter}</span> Skupina ${groupLetter}</div>
+                                <div class="table-wrap">
+                                    <table class="standings standings-compact">
                                         <thead>
-                                            <tr style="background: var(--bg);">
-                                                <th style="padding: 10px; font-size: 0.875em;">#</th>
-                                                <th style="padding: 10px; text-align: left; font-size: 0.875em;">Hráč</th>
-                                                <th style="padding: 10px; font-size: 0.875em;">Z</th>
-                                                <th style="padding: 10px; font-size: 0.875em;">V</th>
-                                                <th style="padding: 10px; font-size: 0.875em;">P</th>
-                                                <th style="padding: 10px; font-size: 0.875em;">S</th>
-                                                <th style="padding: 10px; font-size: 0.875em; font-weight: bold;">B</th>
+                                            <tr>
+                                                <th>#</th>
+                                                <th class="name-cell">Hráč</th>
+                                                <th title="Zápasy">Z</th>
+                                                <th title="Výhry">V</th>
+                                                <th title="Prohry">P</th>
+                                                <th title="Sety">S</th>
+                                                <th title="Body">B</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             ${standings.map((s, i) => `
-                                                <tr style="border-bottom: 1px solid var(--border);">
-                                                    <td style="padding: 10px; text-align: center;">
-                                                        ${i < 2 ? `<span style="display:inline-block;width:24px;height:24px;border-radius:50%;background:var(--secondary);color:white;line-height:24px;font-weight:bold;font-size:0.875em;">${i + 1}</span>` : i + 1}
-                                                    </td>
-                                                    <td style="padding: 10px; font-weight: 500;">${Utils.getPlayerDisplayName(s.playerRef || s.player)}</td>
-                                                    <td style="padding: 10px; text-align: center;">${s.played}</td>
-                                                    <td style="padding: 10px; text-align: center; color: var(--secondary);">${s.wins}</td>
-                                                    <td style="padding: 10px; text-align: center; color: var(--danger);">${s.losses}</td>
-                                                    <td style="padding: 10px; text-align: center; font-size: 0.875em;">${s.setsWon}:${s.setsLost}</td>
-                                                    <td style="padding: 10px; text-align: center; font-weight: bold; color: var(--primary); font-size: 1.1em;">${s.points}</td>
+                                                <tr class="${i < 2 ? 'is-qualified' : ''}">
+                                                    <td><span class="position-badge">${i + 1}</span></td>
+                                                    <td class="name-cell">${Utils.getPlayerDisplayName(s.playerRef || s.player)}</td>
+                                                    <td>${s.played}</td>
+                                                    <td>${s.wins}</td>
+                                                    <td>${s.losses}</td>
+                                                    <td>${s.setsWon}:${s.setsLost}</td>
+                                                    <td class="pts-cell">${s.points}</td>
                                                 </tr>
                                             `).join('')}
                                         </tbody>
                                     </table>
                                 </div>
                                 ${standings.length > 0 && standings[0].played > 0 ? `
-                                    <div style="padding: 10px 15px; background: var(--bg); font-size: 0.875em; color: var(--text-muted);">
-                                        💡 Top 2 postupují do playoff
-                                    </div>
+                                    <div class="group-box-foot">První dva postupují do playoff</div>
                                 ` : ''}
                             </div>
                         `;
                     }).join('')}
                 </div>
-            </div>
+            </section>
         `;
     },
 
@@ -1385,20 +1343,18 @@ const UI = {
             content.innerHTML = '<p style="text-align:center;padding:40px;color:var(--text-muted);">Žádná historie turnajů</p>';
         } else {
             content.innerHTML = `
-                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:15px;">
+                <div class="history-grid">
                     ${State.current.history.map(t => `
-                        <div style="background:var(--bg);padding:20px;border-radius:12px;border:2px solid var(--border);cursor:pointer;transition:all 0.3s;"
+                        <div class="history-card"
                              onclick="loadTournamentFromHistory(${t.id})"
-                             onmouseover="this.style.borderColor='var(--primary)'"
-                             onmouseout="this.style.borderColor='var(--border)'"
                              role="button" tabindex="0"
                              aria-label="Načíst turnaj ${t.name}">
-                            <div style="font-weight:600;margin-bottom:10px;color:var(--primary);">${t.name}</div>
+                            <div class="history-card-title">${t.name}</div>
                             <div style="font-size:0.875em;color:var(--text-muted);">
                                 ${Utils.formatDate(t.date)}<br>
                                 ${Utils.getSystemName(t.system)}<br>
-                                ${t.participants} účastníků • ${t.matches} zápasů<br>
-                                🏆 Vítěz: <strong>${t.winner}</strong>
+                                ${t.participants} účastníků, ${t.matches} zápasů<br>
+                                Vítěz: <strong>${t.winner}</strong>
                             </div>
                         </div>
                     `).join('')}
@@ -1411,8 +1367,37 @@ const UI = {
 
     // GROUP COLOR HELPERS
     getGroupColor(letter) {
-        const colors = { A: '#3b82f6', B: '#10b981', C: '#8b5cf6', D: '#f59e0b', E: '#ef4444', F: '#06b6d4', G: '#ec4899', H: '#84cc16' };
-        return colors[letter] || '#3b82f6';
+        const colors = { A: '#2f6fb0', B: '#2e8a5f', C: '#7a55b5', D: '#c27a12', E: '#c2412d', F: '#1b8a95', G: '#b8467c', H: '#6b8a1f' };
+        return colors[letter] || '#2f6fb0';
+    },
+
+    // Piktogramy: nákresy kurtu a herních systémů, ikony akcí
+    glyph(name) {
+        const court = '<rect x="2" y="5" width="44" height="22" rx="1.5"/><path d="M24 5v22" class="g-net"/>';
+        const dot = (x, y) => `<circle cx="${x}" cy="${y}" r="2.4" class="g-fill"/>`;
+        const paths = {
+            singles: court + dot(13, 16) + dot(35, 16),
+            doubles: court + dot(13, 11) + dot(13, 21) + dot(35, 11) + dot(35, 21),
+            mixed: court + dot(13, 16) + dot(35, 11) + dot(35, 21),
+            roundrobin: (() => {
+                const pts = [0, 1, 2, 3, 4].map(i => {
+                    const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
+                    return [24 + 12 * Math.cos(a), 16 + 12 * Math.sin(a)].map(v => v.toFixed(1));
+                });
+                let d = '';
+                for (let i = 0; i < 5; i++) for (let j = i + 1; j < 5; j++) d += `M${pts[i][0]} ${pts[i][1]}L${pts[j][0]} ${pts[j][1]}`;
+                return `<path d="${d}"/>` + pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="2.2" class="g-fill"/>`).join('');
+            })(),
+            swiss: '<path d="M10 7h10M28 7h10M14 16h10M32 16h4M10 25h4M22 25h16" />' + [[10, 7], [20, 7], [28, 7], [38, 7], [14, 16], [24, 16], [32, 16], [36, 16], [10, 25], [14, 25], [22, 25], [38, 25]].map(([x, y]) => dot(x, y)).join(''),
+            groups: '<rect x="3" y="4" width="15" height="11" rx="2"/><rect x="3" y="18" width="15" height="11" rx="2"/><path d="M18 9.5h7v7h6M18 23.5h7v-7"/><path d="M31 16.5h6v-6h8M37 16.5v6h8"/>',
+            knockout: '<path d="M4 6h10v8H4M14 10h10M4 20h10v8H4M14 24h10M24 10v14M24 17h12"/>' + '<circle cx="40" cy="17" r="3" class="g-fill"/>',
+            cross: '<path d="M4 7h10l6 9-6 9H4M44 7H34l-6 9 6 9h10"/><path d="M20 16h8"/>',
+            positional: '<path d="M6 25h10V13H6zM19 25h10V6H19zM32 25h10V17H32z"/>',
+            edit: '<path d="M17 6.5 21.5 11 11 21.5H6.5V17z"/>',
+            trash: '<path d="M7 9h14M11 9V6.5h6V9M9 9l1 13h8l1-13"/>'
+        };
+        const small = name === 'edit' || name === 'trash';
+        return `<svg class="${small ? 'g-icon' : 'glyph'}" viewBox="${small ? '0 0 28 28' : '0 0 48 32'}" aria-hidden="true">${paths[name] || ''}</svg>`;
     },
 
     // SETUP SWIPE NAVIGATION

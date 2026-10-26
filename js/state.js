@@ -43,6 +43,7 @@ const State = {
     editingParticipantIndex: -1,
     isShared: false, // Tournament loaded from shared URL
     readOnly: false, // Read-only mode for shared tournaments
+    tvMode: false, // Live view on a hall monitor (#live=…&tv=1)
     liveSessionId: null, // Active Firebase live session ID
 
     // Undo/Redo functionality
@@ -57,6 +58,8 @@ const State = {
             const sessionId = hash.slice(6).split('&')[0];
             this.isShared = true;
             this.readOnly = true;
+            this.tvMode = /[&#]tv=1/.test(hash);
+            if (this.tvMode) document.body.classList.add('tv-mode');
 
             if (db) {
                 let firstLoad = true;
@@ -118,8 +121,9 @@ const State = {
             }
         }
 
-        // Load dark mode
-        if (localStorage.getItem('darkMode') === 'true') {
+        // Load dark mode (bez uložené volby se řídí systémem)
+        const darkPref = localStorage.getItem('darkMode');
+        if (darkPref === 'true' || (darkPref === null && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.body.classList.add('dark-mode');
         }
 
@@ -441,6 +445,7 @@ const State = {
 
     stopLiveSession() {
         if (this.liveSessionId) {
+            if (typeof Remote !== 'undefined') Remote.stop();
             if (db) {
                 db.ref(`sessions/${this.liveSessionId}`).remove().catch(console.error);
             }

@@ -1,5 +1,5 @@
 // Service Worker - Offline caching pro Losovací web
-const CACHE_NAME = 'losovaci-web-v4';
+const CACHE_NAME = 'losovaci-web-v5';
 const STATIC_ASSETS = [
     './',
     './index.html',
@@ -15,6 +15,9 @@ const STATIC_ASSETS = [
     './js/export.js',
     './js/utils.js',
     './js/i18n.js',
+    './js/courts.js',
+    './js/remote.js',
+    './js/print.js',
     './manifest.json',
     'https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js'
 ];

@@ -2,11 +2,21 @@
 
 // Initialize app
 function init() {
+    // Stránka rozhodčího: #ref=<session>/<zápas>
+    const refMatch = window.location.hash.match(/^#ref=([^/&]+)\/(\d+)/);
+    if (refMatch) {
+        Remote.initReferee(refMatch[1], parseInt(refMatch[2], 10));
+        return;
+    }
+
     State.load();
     UI.render();
+    Remote.listen();
 
     // Update timers every second
     setInterval(() => {
+        const clock = document.getElementById('tv-clock');
+        if (clock) clock.textContent = new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' });
         State.current.matches.forEach((m, i) => {
             if (m.playing && m.startTime) {
                 const elapsed = Utils.calculateElapsed(m.startTime);
@@ -16,8 +26,12 @@ function init() {
                 }
                 const spectatorTimerEl = document.getElementById(`spectator-timer-${i}`);
                 if (spectatorTimerEl) {
-                    spectatorTimerEl.textContent = `⏱ ${elapsed}`;
+                    spectatorTimerEl.textContent = elapsed;
                 }
+                ['court', 'sp-court'].forEach(prefix => {
+                    const el = document.getElementById(`${prefix}-timer-${i}`);
+                    if (el) el.textContent = elapsed;
+                });
             }
         });
     }, 1000);
@@ -221,6 +235,20 @@ function removeParticipant(index) {
     }
 }
 
+function togglePresence(index) {
+    const p = State.current.participants[index];
+    p.absent = !p.absent;
+    State.save();
+    UI.render();
+}
+
+function markAllPresent() {
+    State.current.participants.forEach(p => { delete p.absent; });
+    State.save();
+    UI.render();
+    Utils.showNotification('Všichni označeni jako přítomní');
+}
+
 function autoFillParticipants() {
     const singles = ['Jan Novák', 'Petr Svoboda', 'Karel Dvořák', 'Tomáš Černý',
                      'Martin Procházka', 'Jiří Kučera', 'Pavel Veselý', 'Lukáš Horák'];
@@ -421,29 +449,26 @@ function toggleMatchDetail(idx) {
 // Theme and UI functions
 function openThemeMenu() {
     const modal = document.getElementById('theme-modal');
+    const current = (document.body.className.match(/theme-\w+/) || ['theme-green'])[0];
+    const themes = [
+        { id: 'theme-green', name: 'Zelený kurt', note: 'Klasický povrch hal', color: '#1e5a46' },
+        { id: 'theme-blue', name: 'Modrý kurt', note: 'Jako na velkých turnajích', color: '#1f4f8f' },
+        { id: 'theme-purple', name: 'Fialový kurt', note: 'Výrazný, pro akce', color: '#4a3b8f' },
+        { id: 'theme-orange', name: 'Antuka', note: 'Pro tenisové turnaje', color: '#a84e2a' }
+    ];
     modal.innerHTML = `
-        <div class="modal-content">
+        <div class="modal-content modal-narrow">
             <div class="modal-header">
-                <h3>Vyberte motiv</h3>
-                <button class="modal-close" onclick="UI.closeModal('theme-modal')">×</button>
+                <h3>Barva kurtu</h3>
+                <button class="modal-close" onclick="UI.closeModal('theme-modal')" aria-label="Zavřít">×</button>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;">
-                <div style="text-align:center;cursor:pointer;padding:10px;border-radius:8px;transition:all 0.3s;" onclick="UI.setTheme('theme-blue')">
-                    <div style="width:100%;height:80px;border-radius:8px;margin-bottom:10px;background:linear-gradient(135deg,#3b82f6,#2563eb);"></div>
-                    <span>Modrá</span>
-                </div>
-                <div style="text-align:center;cursor:pointer;padding:10px;border-radius:8px;" onclick="UI.setTheme('theme-green')">
-                    <div style="width:100%;height:80px;border-radius:8px;margin-bottom:10px;background:linear-gradient(135deg,#10b981,#059669);"></div>
-                    <span>Zelená</span>
-                </div>
-                <div style="text-align:center;cursor:pointer;padding:10px;border-radius:8px;" onclick="UI.setTheme('theme-purple')">
-                    <div style="width:100%;height:80px;border-radius:8px;margin-bottom:10px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);"></div>
-                    <span>Fialová</span>
-                </div>
-                <div style="text-align:center;cursor:pointer;padding:10px;border-radius:8px;" onclick="UI.setTheme('theme-orange')">
-                    <div style="width:100%;height:80px;border-radius:8px;margin-bottom:10px;background:linear-gradient(135deg,#f59e0b,#d97706);"></div>
-                    <span>Oranžová</span>
-                </div>
+            <div class="theme-grid">
+                ${themes.map(t => `
+                    <button class="theme-option ${t.id === current ? 'active' : ''}" onclick="UI.setTheme('${t.id}')">
+                        <span class="theme-swatch" style="--swatch:${t.color}"></span>
+                        <strong>${t.name}</strong>
+                        <span>${t.note}</span>
+                    </button>`).join('')}
             </div>
         </div>
     `;
@@ -569,11 +594,10 @@ function scrollToMatch(idx) {
     setTimeout(() => {
         const matchCard = document.querySelector(`[data-match="${idx}"]`);
         if (matchCard) {
+            if (matchCard.classList.contains('collapsed')) matchCard.classList.remove('collapsed');
             matchCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            matchCard.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
-            setTimeout(() => {
-                matchCard.style.backgroundColor = '';
-            }, 2000);
+            matchCard.classList.add('is-highlighted');
+            setTimeout(() => matchCard.classList.remove('is-highlighted'), 2000);
         }
     }, 100);
 }
@@ -960,53 +984,35 @@ function detectCourtConflicts() {
 function openSpectatorMode() {
     const liveUrl = State.startLiveSession();
     if (!liveUrl) {
-        Utils.showNotification('Chyba při spuštění živého sdílení', 'error');
+        Utils.showNotification('Živé sdílení se nepodařilo spustit', 'error');
         return;
     }
+    Remote.listen();
 
-    const qrUrl = Utils.generateQRCode(liveUrl, 300);
+    const tvUrl = `${liveUrl}&tv=1`;
+    const qrUrl = Utils.generateQRCode(liveUrl, 440);
     const tournamentName = (State.current.tournamentName || 'Turnaj').replace(/'/g, "\\'");
+    const safe = u => u.replace(/'/g, "\\'");
 
     const modal = document.createElement('div');
     modal.className = 'modal show';
     modal.innerHTML = `
-        <div class="modal-content" style="max-width:460px;">
-            <div class="modal-header" style="background:linear-gradient(135deg,#10b981 0%,#0ea5e9 100%);color:white;border-radius:12px 12px 0 0;padding:18px 20px;">
-                <h3 style="color:white;margin:0;display:flex;align-items:center;gap:10px;">
-                    <span style="font-size:1.4em;">📡</span>
-                    Živé sdílení turnaje
-                </h3>
-                <button class="modal-close" style="color:white;opacity:0.8;" onclick="this.closest('.modal').remove()">×</button>
+        <div class="modal-content modal-narrow">
+            <div class="modal-header">
+                <h3><span class="live-dot" aria-hidden="true"></span> Živé sdílení</h3>
+                <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">×</button>
             </div>
-            <div style="padding:24px;text-align:center;">
-                <div style="background:linear-gradient(135deg,rgba(16,185,129,0.1),rgba(14,165,233,0.1));border:2px solid #10b981;border-radius:12px;padding:10px 16px;margin-bottom:20px;font-size:0.88em;color:#059669;font-weight:600;">
-                    📡 Diváci vidí výsledky v reálném čase – odkaz zůstává stejný po celý turnaj
-                </div>
-
-                <div style="position:relative;display:inline-block;margin-bottom:16px;">
-                    <div style="background:linear-gradient(135deg,#10b981,#0ea5e9);padding:4px;border-radius:18px;display:inline-block;box-shadow:0 8px 24px rgba(16,185,129,0.35);">
-                        <div style="background:white;border-radius:14px;padding:12px;display:inline-block;">
-                            <img src="${qrUrl}" alt="QR kód" style="width:220px;height:220px;display:block;border-radius:6px;">
-                        </div>
-                    </div>
-                    <div style="position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#10b981,#0ea5e9);color:white;font-size:0.72em;font-weight:700;padding:3px 12px;border-radius:20px;white-space:nowrap;letter-spacing:0.05em;">
-                        🏸 SKENUJ & SLEDUJ LIVE
-                    </div>
-                </div>
-
-                <div style="margin-top:22px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 14px;word-break:break-all;font-size:0.75em;color:var(--text-muted);text-align:left;">${liveUrl}</div>
+            <p class="modal-lead">Diváci a hráči uvidí kurty, pořadí zápasů a tabulky v reálném čase. Odkaz platí po celý turnaj.</p>
+            <div class="qr-frame"><img src="${qrUrl}" alt="QR kód živého sdílení" width="220" height="220"></div>
+            <div class="url-box">${liveUrl}</div>
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${safe(liveUrl)}').then(() => Utils.showNotification('Odkaz zkopírován'))">Kopírovat odkaz</button>
+                ${navigator.share ? `<button class="btn btn-secondary" onclick="navigator.share({title:'${tournamentName}',url:'${safe(liveUrl)}'})">Sdílet</button>` : ''}
+                <a class="btn btn-secondary" href="${tvUrl}" target="_blank" rel="noopener">Otevřít na monitor</a>
             </div>
-            <div class="button-group" style="justify-content:center;padding:0 24px 20px;flex-wrap:wrap;gap:8px;">
-                <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${liveUrl.replace(/'/g, "\\'")}').then(() => Utils.showNotification('Odkaz zkopírován'))">
-                    📋 Kopírovat odkaz
-                </button>
-                ${navigator.share ? `
-                    <button class="btn btn-secondary" onclick="navigator.share({title:'${tournamentName}',url:'${liveUrl.replace(/'/g, "\\'")}'})">
-                        📤 Sdílet
-                    </button>` : ''}
-                <button class="btn btn-outline" onclick="State.stopLiveSession();this.closest('.modal').remove();">
-                    ⏹ Ukončit sdílení
-                </button>
+            <p class="modal-note">Monitor v hale: otevřete odkaz „na monitor“ na počítači připojeném k televizi a zapněte celou obrazovku (F11).</p>
+            <div class="button-group">
+                <button class="btn btn-ghost-danger" onclick="State.stopLiveSession();this.closest('.modal').remove();">Ukončit sdílení</button>
             </div>
         </div>
     `;
