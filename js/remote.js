@@ -80,7 +80,7 @@ const Remote = {
             <div class="modal-content modal-narrow">
                 <div class="modal-header">
                     <h3>Zápis výsledku rozhodčím</h3>
-                    <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">×</button>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">${Icons.svg('x')}</button>
                 </div>
                 <p class="modal-lead">Zápas ${idx + 1}, kurt ${match.court}: <strong>${Utils.getPlayerDisplayNamePlain(match.player1)}</strong> – <strong>${Utils.getPlayerDisplayNamePlain(match.player2)}</strong></p>
                 <div class="qr-frame"><img src="${Utils.generateQRCode(url, 440)}" alt="QR kód pro zápis výsledku" width="220" height="220"></div>

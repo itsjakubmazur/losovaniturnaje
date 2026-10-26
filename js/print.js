@@ -9,7 +9,7 @@ const Print = {
             <div class="modal-content modal-narrow">
                 <div class="modal-header">
                     <h3>Tisk</h3>
-                    <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">×</button>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">${Icons.svg('x')}</button>
                 </div>
                 <div class="menu-list">
                     <button class="menu-item" ${hasMatches ? '' : 'disabled'} onclick="Print.scoreSheets(); this.closest('.modal').remove();">

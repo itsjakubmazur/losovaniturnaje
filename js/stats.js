@@ -490,14 +490,14 @@ const Stats = {
         const stats = this.calculateHistoricalStats();
 
         if (stats.length === 0) {
-            Utils.showNotification('Žádná data v historii', 'error');
+            Utils.showNotification('Statistiky vzniknou z turnajů uložených v historii. Zatím tam žádný není.', 'info');
             return;
         }
 
         const modal = document.createElement('div');
         modal.className = 'modal show';
 
-        let statsHTML = '<table><thead><tr><th>Jméno</th><th>Turnaje</th><th>Zápasy</th><th>V-P</th><th>% výher</th><th>Sety</th><th>🥇</th><th>🥈</th><th>🥉</th></tr></thead><tbody>';
+        let statsHTML = '<table class="standings"><thead><tr><th>Jméno</th><th>Turnaje</th><th>Zápasy</th><th>V-P</th><th>% výher</th><th>Sety</th><th title="1. místa">1.</th><th title="2. místa">2.</th><th title="3. místa">3.</th></tr></thead><tbody>';
 
         stats.forEach(s => {
             statsHTML += `
@@ -520,13 +520,11 @@ const Stats = {
         modal.innerHTML = `
             <div class="modal-content modal-large">
                 <div class="modal-header">
-                    <h3>📊 Statistiky napříč turnaji</h3>
-                    <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+                    <h3>Statistiky hráčů</h3>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">${Icons.svg('x')}</button>
                 </div>
-                <p style="margin-bottom: 15px; color: var(--text-muted);">
-                    Agregované statistiky ze všech ${State.current.history.length} turnajů v historii
-                </p>
-                <div style="overflow-x: auto;">
+                <p class="modal-lead">Souhrn ze všech ${State.current.history.length} turnajů uložených v historii.</p>
+                <div class="table-wrap">
                     ${statsHTML}
                 </div>
             </div>

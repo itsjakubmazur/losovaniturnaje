@@ -65,7 +65,7 @@ const Utils = {
         const names = {
             'roundrobin': 'Každý s každým',
             'swiss': 'Švýcarský systém',
-            'groups': 'Skupiny + Playoff',
+            'groups': 'Skupiny a playoff',
             'knockout': 'Vyřazovací'
         };
         return names[system || State.current.system] || system;
@@ -156,26 +156,45 @@ const Utils = {
         return State.current.matches.every(m => m.completed);
     },
 
-    // Notifikace
-    showNotification(message, type = 'success') {
+    // Notifikace; volitelně s akcí, např. { label: 'Vrátit', fn: undoAction }
+    showNotification(message, type = 'success', action = null) {
         document.querySelectorAll('.notification').forEach(n => n.remove());
+        clearTimeout(this.toastTimer);
         const notification = document.createElement('div');
-        notification.className = 'notification';
-        notification.setAttribute('role', 'status');
-        notification.textContent = message;
-        if (type === 'error') {
-            notification.style.borderLeftColor = 'var(--danger)';
+        notification.className = `notification ${type === 'error' ? 'is-error' : type === 'info' ? 'info' : ''}`;
+        notification.setAttribute('role', type === 'error' ? 'alert' : 'status');
+        const icon = typeof Icons !== 'undefined' ? Icons.svg(type === 'error' ? 'alert' : type === 'info' ? 'info' : 'check') : '';
+        notification.innerHTML = `${icon}<span class="toast-text"></span>`;
+        notification.querySelector('.toast-text').textContent = message;
+        if (action) {
+            const btn = document.createElement('button');
+            btn.className = 'toast-action';
+            btn.textContent = action.label;
+            btn.onclick = () => { notification.remove(); action.fn(); };
+            notification.appendChild(btn);
         }
         document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
+        this.toastTimer = setTimeout(() => {
+            notification.classList.add('is-leaving');
+            setTimeout(() => notification.remove(), 250);
+        }, action ? 5000 : 3000);
+    },
+
+    // České tvary: 1 hráč, 2–4 hráči, 5+ hráčů
+    plural(n, one, few, many) {
+        n = Math.abs(n);
+        return n === 1 ? one : n >= 2 && n <= 4 ? few : many;
+    },
+
+    formatMinutes(min) {
+        const h = Math.floor(min / 60), m = Math.round(min % 60);
+        if (h === 0) return `${m} min`;
+        return m ? `${h} h ${m} min` : `${h} h`;
     },
 
     // Konfety při výhře
     throwConfetti() {
-        const colors = ['#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ef4444'];
+        const colors = ['#e8cf1f', '#1e5a46', '#ffffff', '#c48a5a', '#2f6fb0'];
         for (let i = 0; i < 50; i++) {
             setTimeout(() => {
                 const confetti = document.createElement('div');
@@ -183,8 +202,9 @@ const Utils = {
                 confetti.style.left = Math.random() * 100 + '%';
                 confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
                 confetti.style.width = confetti.style.height = (Math.random() * 10 + 5) + 'px';
+                confetti.style.animationDuration = (2.2 + Math.random() * 1.6) + 's';
                 document.body.appendChild(confetti);
-                setTimeout(() => confetti.remove(), 3000);
+                setTimeout(() => confetti.remove(), 4000);
             }, i * 30);
         }
     },
@@ -244,55 +264,27 @@ const Utils = {
         return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
     },
 
-    // Sdílení turnaje pomocí QR kódu
+    // Sdílení turnaje pomocí QR kódu (statický snímek turnaje v odkazu)
     showQRCode() {
         const shareUrl = this.encodeTournamentToURL(State.current);
-
         if (!shareUrl) {
-            this.showNotification('Chyba při generování QR kódu', 'error');
+            this.showNotification('QR kód se nepodařilo vytvořit', 'error');
             return;
         }
-
-        const tournamentInfo = State.current.tournamentName || 'Turnaj';
         const safeUrl = shareUrl.replace(/'/g, "\\'");
-
         const modal = document.createElement('div');
         modal.className = 'modal show';
         modal.innerHTML = `
-            <div class="modal-content" style="max-width:440px;">
-                <div class="modal-header" style="background:linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%);color:white;border-radius:12px 12px 0 0;padding:18px 20px;">
-                    <h3 style="color:white;margin:0;display:flex;align-items:center;gap:10px;">
-                        <span style="font-size:1.4em;">🏸</span>
-                        Sdílet turnaj
-                    </h3>
-                    <button class="modal-close" style="color:white;opacity:0.8;" onclick="this.closest('.modal').remove()">×</button>
+            <div class="modal-content modal-narrow">
+                <div class="modal-header">
+                    <h3>Sdílet turnaj</h3>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">${Icons.svg('x')}</button>
                 </div>
-                <div style="padding:24px;text-align:center;">
-                    <div style="font-weight:700;font-size:1em;margin-bottom:18px;color:var(--text);">${tournamentInfo}</div>
-
-                    <div style="position:relative;display:inline-block;margin-bottom:16px;">
-                        <div style="background:linear-gradient(135deg,#3b82f6,#8b5cf6);padding:4px;border-radius:18px;display:inline-block;box-shadow:0 8px 24px rgba(59,130,246,0.35);">
-                            <div style="background:white;border-radius:14px;padding:12px;display:inline-block;">
-                                <img src="${this.generateQRCode(shareUrl, 220)}"
-                                     alt="QR kód"
-                                     style="width:220px;height:220px;display:block;border-radius:6px;">
-                            </div>
-                        </div>
-                        <div style="position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:white;font-size:0.72em;font-weight:700;padding:3px 12px;border-radius:20px;white-space:nowrap;letter-spacing:0.05em;">
-                            🏸 NASKENUJ & ZOBRAZ
-                        </div>
-                    </div>
-
-                    <div style="margin-top:22px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 14px;word-break:break-all;font-size:0.75em;color:var(--text-muted);text-align:left;">${shareUrl}</div>
-
-                    <div style="margin-top:12px;padding:10px 14px;background:#fff8e1;border:1px solid #f59e0b;border-radius:10px;font-size:0.82em;color:#92400e;text-align:left;">
-                        ⚠️ Každá změna výsledků vyžaduje nový QR kód
-                    </div>
-                </div>
-                <div class="button-group" style="justify-content:center;padding:0 24px 20px;">
-                    <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${safeUrl}').then(() => Utils.showNotification('Odkaz zkopírován'))">
-                        📋 Kopírovat odkaz
-                    </button>
+                <p class="modal-lead">${State.current.tournamentName || 'Turnaj'}: snímek současného stavu. Po každé změně výsledků je potřeba nový kód, pro průběžné sdílení použijte Živé sdílení.</p>
+                <div class="qr-frame"><img src="${this.generateQRCode(shareUrl, 440)}" alt="QR kód" width="220" height="220"></div>
+                <div class="url-box">${shareUrl}</div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="navigator.clipboard.writeText('${safeUrl}').then(() => Utils.showNotification('Odkaz zkopírován'))">${Icons.svg('copy')}Kopírovat odkaz</button>
                 </div>
             </div>
         `;

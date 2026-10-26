@@ -241,7 +241,7 @@ const Courts = {
                     ${[...voices].sort((a, b) => this.voiceScore(b) - this.voiceScore(a)).map(v =>
                         `<option value="${v.name}" ${current && v.name === current.name ? 'selected' : ''}>${this.voiceLabel(v)}</option>`).join('')}
                 </select>
-                <button class="btn btn-sm btn-outline" onclick="Courts.testVoice()">Vyzkoušet</button>
+                <button class="btn btn-sm btn-outline" onclick="Courts.testVoice()">${Icons.svg('volume')}Vyzkoušet</button>
                 ${best < 4 ? `<p class="voice-hint">Přirozenější hlas: v prohlížeči Microsoft Edge jsou zdarma neuronové hlasy Vlasta a Antonín. Na Macu a iPhonu si stáhněte prémiovou Zuzanu (Zpřístupnění → Mluvený obsah → Hlasy → Čeština) a obnovte stránku.</p>` : ''}
             </div>`;
     },
@@ -258,17 +258,17 @@ const Courts = {
         const m = this.onCourt(court);
         if (!m) {
             return `
-                <div class="court-tile is-free">
+                <div class="court-tile is-free" data-court="${court}" data-idx="">
                     <div class="court-tile-head"><span class="court-no">Kurt ${court}</span><span class="court-state">volný</span></div>
                     <div class="court-surface">
-                        ${interactive ? `<button class="btn btn-court" onclick="Courts.callNext(${court})">Vyvolat další zápas</button>` : '<span class="court-wait">Čeká na další zápas</span>'}
+                        ${interactive && this.upcoming(1).length ? `<button class="btn btn-court" onclick="Courts.callNext(${court})">${Icons.svg('volume')}Vyvolat další zápas</button>` : `<span class="court-wait">${State.current.matches.some(m => this.isReady(m)) ? 'Čeká na další zápas' : 'Žádný zápas na řadě'}</span>`}
                     </div>
                 </div>`;
         }
         const idx = State.current.matches.indexOf(m);
         const score = this.setsSummary(m);
         return `
-            <div class="court-tile is-live">
+            <div class="court-tile is-live" data-court="${court}" data-idx="${idx}">
                 <div class="court-tile-head">
                     <span class="court-no">Kurt ${court}</span>
                     ${m.group ? `<span class="court-tag">Sk. ${m.group}</span>` : m.roundName ? `<span class="court-tag">${m.roundName}</span>` : ''}
@@ -281,8 +281,8 @@ const Courts = {
                 </div>
                 ${interactive ? `
                 <div class="court-actions">
-                    <button class="btn btn-sm btn-outline" onclick="scrollToMatch(${idx})">Zadat skóre</button>
-                    <button class="btn btn-sm btn-outline" onclick="Remote.showRefereeQR(${idx})">QR pro rozhodčího</button>
+                    <button class="btn btn-sm btn-outline" onclick="MatchSheet.open(${idx})">${Icons.svg('edit')}Skóre</button>
+                    <button class="btn btn-sm btn-outline" onclick="Remote.showRefereeQR(${idx})" title="QR pro rozhodčího">${Icons.svg('qr')}QR</button>
                 </div>` : ''}
             </div>`;
     },
@@ -301,7 +301,7 @@ const Courts = {
         return `
             <section class="court-board" aria-label="Kurty">
                 <div class="court-board-head">
-                    <h3>Kurty</h3>
+                    <h2 class="court-board-title">${Icons.svg('court')}Kurty</h2>
                     <div class="court-board-tools">
                         <button class="toggle ${auto ? 'on' : ''}" onclick="Courts.toggleAutoCall()" aria-pressed="${auto}" title="Po dohrání zápasu automaticky pošle na kurt další připravený zápas">
                             <span class="toggle-knob"></span>Automaticky vyvolávat
@@ -309,7 +309,7 @@ const Courts = {
                         <button class="toggle ${voice ? 'on' : ''}" onclick="Courts.toggleVoice()" aria-pressed="${voice}" title="Při vyvolání zápasu přečte kurt a hráče nahlas">
                             <span class="toggle-knob"></span>Hlásit hlasem
                         </button>
-                        ${free > 0 && readyCount > 0 ? `<button class="btn btn-sm btn-primary" onclick="Courts.fillAll()">Obsadit volné kurty (${Math.min(free, readyCount)})</button>` : ''}
+                        ${free > 0 && readyCount > 0 ? `<button class="btn btn-sm btn-primary" onclick="Courts.fillAll()">${Icons.svg('play')}Obsadit volné kurty (${Math.min(free, readyCount)})</button>` : ''}
                     </div>
                 </div>
                 ${this.renderVoiceSettings()}
@@ -317,8 +317,9 @@ const Courts = {
                 ${queue.length > 0 ? `
                     <div class="court-queue">
                         <span class="court-queue-label">Na řadě</span>
+                        ${queue.some(q => q.waiting) ? '<span class="court-queue-legend">šedě: hráč ještě hraje</span>' : ''}
                         <ol>
-                            ${queue.map(({ m, waiting }) => `<li class="${waiting ? 'is-waiting' : ''}"><button class="link-btn" onclick="scrollToMatch(${State.current.matches.indexOf(m)})">${Utils.getPlayerDisplayNamePlain(m.player1)} – ${Utils.getPlayerDisplayNamePlain(m.player2)}</button>${waiting ? ' <span class="queue-note">(hráč ještě hraje)</span>' : ''}</li>`).join('')}
+                            ${queue.map(({ m, waiting }) => `<li class="${waiting ? 'is-waiting' : ''}" ${waiting ? 'title="Někdo z hráčů ještě hraje"' : ''}><button class="link-btn" onclick="scrollToMatch(${State.current.matches.indexOf(m)})">${Utils.getPlayerDisplayNamePlain(m.player1)} – ${Utils.getPlayerDisplayNamePlain(m.player2)}</button></li>`).join('')}
                         </ol>
                     </div>` : ''}
             </section>`;

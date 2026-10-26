@@ -1,5 +1,5 @@
 // Service Worker - Offline caching pro Losovací web
-const CACHE_NAME = 'losovaci-web-v7';
+const CACHE_NAME = 'losovaci-web-v8';
 const STATIC_ASSETS = [
     './',
     './index.html',
@@ -14,8 +14,10 @@ const STATIC_ASSETS = [
     './js/stats.js',
     './js/export.js',
     './js/utils.js',
+    './js/icons.js',
     './js/i18n.js',
     './js/courts.js',
+    './js/sheet.js',
     './js/remote.js',
     './js/print.js',
     './manifest.json',

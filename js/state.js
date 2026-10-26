@@ -73,7 +73,7 @@ const State = {
                                 UI.render();
                                 if (firstLoad) {
                                     firstLoad = false;
-                                    Utils.showNotification(`📡 Připojeno: ${this.current.tournamentName || 'Turnaj'}`);
+                                    Utils.showNotification(`Připojeno: ${this.current.tournamentName || 'Turnaj'}`, 'info');
                                 }
                             }
                         }
@@ -107,7 +107,7 @@ const State = {
 
             // Show notification
             setTimeout(() => {
-                Utils.showNotification(`📱 Zobrazuji sdílený turnaj: ${this.current.tournamentName}`);
+                Utils.showNotification(`Zobrazujete sdílený turnaj ${this.current.tournamentName}`, 'info');
             }, 500);
         } else {
             // Load from localStorage as usual
@@ -460,32 +460,20 @@ const State = {
         const modal = document.createElement('div');
         modal.className = 'modal show';
         modal.innerHTML = `
-            <div class="modal-content">
+            <div class="modal-content modal-narrow">
                 <div class="modal-header">
-                    <h3>☁️ Záloha dat</h3>
-                    <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+                    <h3>Záloha dat</h3>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">${Icons.svg('x')}</button>
                 </div>
-                <div style="margin: 20px 0;">
-                    <p style="color: var(--text-muted); margin-bottom: 20px;">
-                        Zálohujte všechna data včetně historie turnajů, nastavení a preferencí.
-                    </p>
-                    <div style="display: flex; flex-direction: column; gap: 15px;">
-                        <button class="btn btn-primary" onclick="State.exportBackup(); this.closest('.modal').remove()">
-                            ⬇️ Exportovat zálohu
-                        </button>
-                        <label class="btn btn-secondary" style="text-align: center; cursor: pointer; margin: 0;">
-                            ⬆️ Importovat zálohu
-                            <input type="file" accept=".json"
-                                   onchange="State.importBackup(this.files[0]); this.closest('.modal').remove();"
-                                   style="display: none;">
-                        </label>
-                    </div>
-                    <div style="margin-top: 20px; padding: 15px; background: var(--bg); border-radius: 8px;">
-                        <strong>💡 Tip:</strong>
-                        <p style="margin: 5px 0 0; font-size: 0.9em; color: var(--text-muted);">
-                            Pravidelně zálohujte svá data. Zálohu můžete uložit na Google Drive, Dropbox nebo jiné cloudové úložiště.
-                        </p>
-                    </div>
+                <p class="modal-lead">Záloha obsahuje rozehraný turnaj, historii, šablony i nastavení. Uložte si ji třeba na Google Disk a obnovíte ji i na jiném počítači.</p>
+                <div class="menu-list">
+                    <button class="menu-item menu-item-icon" onclick="State.exportBackup(); this.closest('.modal').remove()">
+                        ${Icons.svg('download')}<span><strong>Stáhnout zálohu</strong><span>Soubor JSON do počítače</span></span>
+                    </button>
+                    <label class="menu-item menu-item-icon">
+                        ${Icons.svg('upload')}<span><strong>Obnovit ze zálohy</strong><span>Nahradí současná data</span></span>
+                        <input type="file" accept=".json" hidden onchange="State.importBackup(this.files[0]); this.closest('.modal').remove();">
+                    </label>
                 </div>
             </div>
         `;

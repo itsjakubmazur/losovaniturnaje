@@ -38,6 +38,28 @@ function init() {
 
     // Setup keyboard shortcuts for quick score mode
     setupKeyboardShortcuts();
+    setupModalDismiss();
+}
+
+// Okna: zavření klepnutím vedle a klávesou Esc
+function setupModalDismiss() {
+    const closeModalEl = m => {
+        if (m.id && ['participant-modal', 'theme-modal', 'history-modal', 'export-modal'].includes(m.id)) m.classList.remove('show');
+        else m.remove();
+    };
+    document.addEventListener('click', e => {
+        if (e.target.classList && e.target.classList.contains('modal') && e.target.classList.contains('show')) closeModalEl(e.target);
+        const menu = document.querySelector('.more-menu[open]');
+        if (menu && !menu.contains(e.target)) menu.removeAttribute('open');
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Escape') return;
+        const open = [...document.querySelectorAll('.modal.show')].pop();
+        if (open) { closeModalEl(open); return; }
+        const menu = document.querySelector('.more-menu[open]');
+        if (menu) { menu.removeAttribute('open'); return; }
+        if (MatchSheet.idx !== null) MatchSheet.close();
+    });
 }
 
 // Keyboard shortcuts for quick scoring and general shortcuts
@@ -57,21 +79,24 @@ function setupKeyboardShortcuts() {
             }
         }
 
-        // Only if quick score mode is active and on matches page
-        if (!State.current.quickScoreMode || State.current.step !== 'matches') return;
-
-        // Find currently playing match
-        const playingMatchIdx = State.current.matches.findIndex(m => m.playing);
+        // Body klávesami: v otevřeném panelu zápasu, nebo v rychlém režimu u běžícího zápasu
+        if (State.current.step !== 'matches') return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        let playingMatchIdx = MatchSheet.idx !== null && !State.current.matches[MatchSheet.idx]?.completed ? MatchSheet.idx : -1;
+        if (playingMatchIdx === -1 && State.current.quickScoreMode) playingMatchIdx = State.current.matches.findIndex(m => m.playing);
         if (playingMatchIdx === -1) return;
 
         const match = State.current.matches[playingMatchIdx];
 
         // Find current set (first incomplete set)
-        const currentSetIdx = match.sets.findIndex(s => s.score1 === null || s.score2 === null);
+        const currentSetIdx = Matches.currentSetIdx(match);
         if (currentSetIdx === -1) return;
 
         // Don't trigger if user is typing in input/textarea
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (MatchSheet.idx === playingMatchIdx && ['q', 'w', 'a', 's'].includes(e.key.toLowerCase())) {
+            MatchSheet.bump = `${currentSetIdx}-${'qw'.includes(e.key.toLowerCase()) ? 1 : 2}`;
+        }
 
         switch(e.key.toLowerCase()) {
             case 'q': // Player 1 decrease
@@ -123,7 +148,7 @@ function openParticipantModal(index = -1) {
         <div class="modal-content">
             <div class="modal-header">
                 <h3>${index >= 0 ? i18n.t('participant.edit') : i18n.t('participant.add')}</h3>
-                <button class="modal-close" onclick="UI.closeModal('participant-modal')">×</button>
+                <button class="modal-close" onclick="UI.closeModal('participant-modal')" aria-label="Zavřít">${Icons.svg('x')}</button>
             </div>
             <div class="input-group">
                 <label>${i18n.t('participant.name')} *</label>
@@ -162,7 +187,7 @@ function openParticipantModal(index = -1) {
                 <input type="tel" id="modal-phone" value="${participant?.phone || ''}" placeholder="+420 123 456 789">
             </div>
             <div class="button-group">
-                <button class="btn btn-primary" onclick="saveParticipant()">💾 ${i18n.t('btn.save')}</button>
+                <button class="btn btn-primary" onclick="saveParticipant()">${Icons.svg('check')}${i18n.t('btn.save')}</button>
                 <button class="btn btn-outline" onclick="UI.closeModal('participant-modal')">${i18n.t('btn.cancel')}</button>
             </div>
         </div>
@@ -227,12 +252,50 @@ function editParticipant(index) {
 }
 
 function removeParticipant(index) {
-    if (confirm(`Opravdu odebrat ${State.current.participants[index].name}?`)) {
+    const p = State.current.participants[index];
+    const row = document.querySelector(`.roster-row[data-idx="${index}"]`);
+    const commit = () => {
         State.current.participants.splice(index, 1);
         State.save();
         UI.render();
-        Utils.showNotification('Účastník odebrán');
+        Utils.showNotification(`${Utils.getPlayerDisplayNamePlain(p)} odebrán(a)`, 'success', { label: 'Vrátit', fn: undoAction });
+    };
+    if (row && !UI.reducedMotion()) {
+        row.classList.add('is-leaving');
+        setTimeout(commit, 220);
+    } else {
+        commit();
     }
+}
+
+// Rychlé přidání hráče z řádku nad seznamem
+function quickAddParticipant() {
+    const nameEl = document.getElementById('qa-name');
+    const name = nameEl.value.trim();
+    if (!name) { nameEl.focus(); return; }
+    const partnerEl = document.getElementById('qa-partner');
+    const partner = partnerEl ? partnerEl.value.trim() : '';
+    if (partnerEl && !partner) { partnerEl.focus(); Utils.showNotification('Doplňte partnera, ve čtyřhře hrají páry', 'error'); return; }
+    const club = document.getElementById('qa-club').value.trim();
+    State.current.participants.push({ name, partner: partner || null, teamName: null, club, seed: 5, email: '', phone: '' });
+    UI.newParticipantIdx = State.current.participants.length - 1;
+    UI.focusQuickAdd = true;
+    State.save();
+    UI.render();
+    const clubEl = document.getElementById('qa-club');
+    if (clubEl) clubEl.value = club; // klub často stejný pro více hráčů
+}
+
+function filterRoster(term) {
+    const t = term.trim().toLowerCase();
+    let hits = 0;
+    document.querySelectorAll('.roster-row').forEach(r => {
+        const show = !t || r.dataset.search.includes(t);
+        r.hidden = !show;
+        if (show) hits++;
+    });
+    const none = document.getElementById('roster-nohit');
+    if (none) none.hidden = hits > 0;
 }
 
 function togglePresence(index) {
@@ -308,20 +371,17 @@ function openMovePlayerModal(fromGroupIdx, playerIdx) {
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h3>↔ Přesunout hráče</h3>
-                <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+                <h3>Přesunout hráče</h3>
+                <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">${Icons.svg('x')}</button>
             </div>
-            <p style="margin:0 0 15px;"><strong>${playerName}</strong> je ve skupině <strong>${String.fromCharCode(65 + fromGroupIdx)}</strong>.</p>
-            <p style="color:var(--text-muted);margin:0 0 15px;">Vyberte cílovou skupinu:</p>
-            <div style="display:flex;flex-direction:column;gap:10px;">
+            <p class="modal-lead"><strong>${playerName}</strong> je ve skupině ${String.fromCharCode(65 + fromGroupIdx)}. Kam ho přesunout?</p>
+            <div class="menu-list">
                 ${otherGroups.map(g => `
-                    <button class="btn btn-secondary" onclick="movePlayerToGroup(${fromGroupIdx}, ${playerIdx}, ${g.i}); document.getElementById('move-player-modal').remove();">
-                        Skupina ${g.letter} (${groups[g.i].length} hráčů)
+                    <button class="menu-item menu-item-row" onclick="movePlayerToGroup(${fromGroupIdx}, ${playerIdx}, ${g.i}); document.getElementById('move-player-modal').remove();">
+                        <span class="group-letter" style="--group:${UI.getGroupColor(g.letter)}">${g.letter}</span>
+                        <strong>Skupina ${g.letter}</strong><span>${groups[g.i].length} ${Utils.plural(groups[g.i].length, 'hráč', 'hráči', 'hráčů')}</span>
                     </button>
                 `).join('')}
-            </div>
-            <div style="margin-top:15px;">
-                <button class="btn btn-outline" onclick="this.closest('.modal').remove()">Zrušit</button>
             </div>
         </div>
     `;
@@ -336,7 +396,7 @@ function movePlayerToGroup(fromGroupIdx, playerIdx, toGroupIdx) {
     UI.render();
     const fromLetter = String.fromCharCode(65 + fromGroupIdx);
     const toLetter = String.fromCharCode(65 + toGroupIdx);
-    Utils.showNotification(`${Utils.getPlayerDisplayName(player)} přesunut ze skupiny ${fromLetter} do skupiny ${toLetter}`);
+    Utils.showNotification(`${Utils.getPlayerDisplayNamePlain(player)} přesunut(a) ze skupiny ${fromLetter} do ${toLetter}`);
 }
 
 function performDraw() {
@@ -406,6 +466,9 @@ function quickScoreAdjust(matchIdx, setIdx, player, delta) {
         const newScore = Math.max(0, Math.min(State.current.tieBreakPoints, current + delta));
         set.score2 = newScore;
     }
+    // Počítání po bodech: druhá strana začíná na nule, aby šel set rozhodnout
+    if (set.score1 === null) set.score1 = 0;
+    if (set.score2 === null) set.score2 = 0;
 
     State.save();
     UI.render();
@@ -440,10 +503,7 @@ function editMatch(idx) {
 
 // Toggle match detail
 function toggleMatchDetail(idx) {
-    const matchCard = document.getElementById(`match-${idx}`);
-    if (matchCard) {
-        matchCard.classList.toggle('collapsed');
-    }
+    MatchSheet.open(idx);
 }
 
 // Theme and UI functions
@@ -460,7 +520,7 @@ function openThemeMenu() {
         <div class="modal-content modal-narrow">
             <div class="modal-header">
                 <h3>Barva kurtu</h3>
-                <button class="modal-close" onclick="UI.closeModal('theme-modal')" aria-label="Zavřít">×</button>
+                <button class="modal-close" onclick="UI.closeModal('theme-modal')" aria-label="Zavřít">${Icons.svg('x')}</button>
             </div>
             <div class="theme-grid">
                 ${themes.map(t => `
@@ -527,7 +587,7 @@ function advancePlayoffRound() {
         UI.render();
         
         if (State.current.playoffBracket.currentRound === State.current.playoffBracket.totalRounds - 1) {
-            Utils.showNotification('Finále vygenerováno! 🏆');
+            Utils.showNotification('Finále je nachystané');
         } else {
             Utils.showNotification('Další fáze vygenerována');
         }
@@ -590,16 +650,9 @@ function advanceConsolationRound(tier) {
 }
 
 function scrollToMatch(idx) {
-    // Scroll to match detail in the list
-    setTimeout(() => {
-        const matchCard = document.querySelector(`[data-match="${idx}"]`);
-        if (matchCard) {
-            if (matchCard.classList.contains('collapsed')) matchCard.classList.remove('collapsed');
-            matchCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            matchCard.classList.add('is-highlighted');
-            setTimeout(() => matchCard.classList.remove('is-highlighted'), 2000);
-        }
-    }, 100);
+    // Z kurtu, pavouka i fronty otevře panel zápasu
+    if (State.current.step !== 'matches') goToMatches();
+    MatchSheet.open(idx);
 }
 
 // Undo/Redo functions
@@ -623,12 +676,12 @@ function updateUndoRedoButtons() {
 
     if (undoBtn) {
         undoBtn.disabled = State.undoStack.length === 0;
-        undoBtn.style.opacity = State.undoStack.length === 0 ? '0.3' : '1';
+
     }
 
     if (redoBtn) {
         redoBtn.disabled = State.redoStack.length === 0;
-        redoBtn.style.opacity = State.redoStack.length === 0 ? '0.3' : '1';
+
     }
 }
 
@@ -637,66 +690,33 @@ let currentMatchFilter = 'all';
 
 function setMatchFilter(filter) {
     currentMatchFilter = filter;
-
-    // Update button states
     document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.filter === filter) {
-            btn.classList.add('active');
-        }
+        const on = btn.dataset.filter === filter;
+        btn.classList.toggle('active', on);
+        btn.classList.toggle('on', on);
     });
-
     filterMatches();
 }
 
 function filterMatches() {
-    const searchTerm = document.getElementById('match-search')?.value.toLowerCase() || '';
-
+    const input = document.getElementById('match-search');
+    if (input) UI.matchSearch = input.value;
+    const searchTerm = (UI.matchSearch || '').toLowerCase().trim();
     document.querySelectorAll('.round-section').forEach(section => {
-        const matches = section.querySelectorAll('.match-card');
-        let visibleCount = 0;
-
-        matches.forEach(card => {
-            const matchIdx = parseInt(card.dataset.match);
-            const match = State.current.matches[matchIdx];
-
-            if (!match) {
-                card.style.display = 'none';
-                return;
-            }
-
-            const p1Name = Utils.getPlayerDisplayNamePlain(match.player1).toLowerCase();
-            const p2Name = Utils.getPlayerDisplayNamePlain(match.player2).toLowerCase();
-
-            // Check filter
-            let passesFilter = true;
-            if (currentMatchFilter === 'completed') {
-                passesFilter = match.completed;
-            } else if (currentMatchFilter === 'playing') {
-                passesFilter = match.playing;
-            } else if (currentMatchFilter === 'pending') {
-                passesFilter = !match.completed && !match.playing;
-            }
-
-            // Check search
-            const passesSearch = searchTerm === '' ||
-                                p1Name.includes(searchTerm) ||
-                                p2Name.includes(searchTerm);
-
-            if (passesFilter && passesSearch) {
-                card.style.display = '';
-                visibleCount++;
-            } else {
-                card.style.display = 'none';
-            }
+        let visible = 0;
+        section.querySelectorAll('.match-row').forEach(row => {
+            const match = State.current.matches[parseInt(row.dataset.match, 10)];
+            if (!match) { row.hidden = true; return; }
+            const names = `${Utils.getPlayerDisplayNamePlain(match.player1)} ${match.player1?.partner || ''} ${Utils.getPlayerDisplayNamePlain(match.player2)} ${match.player2?.partner || ''}`.toLowerCase();
+            const passesFilter = currentMatchFilter === 'completed' ? match.completed
+                : currentMatchFilter === 'playing' ? match.playing
+                : currentMatchFilter === 'pending' ? !match.completed && !match.playing
+                : true;
+            const show = passesFilter && (!searchTerm || names.includes(searchTerm));
+            row.hidden = !show;
+            if (show) visible++;
         });
-
-        // Hide round section if no visible matches
-        if (visibleCount === 0) {
-            section.style.display = 'none';
-        } else {
-            section.style.display = '';
-        }
+        section.hidden = visible === 0;
     });
 }
 
@@ -709,36 +729,32 @@ function showCSVImportModal() {
     modal.innerHTML = `
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3>📥 Hromadný import účastníků (CSV)</h3>
-                <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+                <h3>Vložit seznam hráčů</h3>
+                <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">${Icons.svg('x')}</button>
             </div>
-            <p style="color:var(--text-muted);margin-bottom:15px;">
-                Importujte více účastníků najednou ze souboru CSV nebo z textu.
-            </p>
-            <div class="alert alert-info" style="margin-bottom:15px;">
-                <strong>Formát:</strong> <code>Jméno,Partner,Klub,Nasazení,Email,Telefon</code>
-                <div class="csv-format-example">Jan Novák,,SK Praha,8,jan@example.com,+420123456789
-Petr Svoboda,,TJ Brno,6
-Alena Malá,Karel Malý,BC Ostrava,5,alena@example.com</div>
-                <small>• Partner vyplňte pouze pro deblové páry • Nasazení 1–10 (nepovinné)</small>
+            <p class="modal-lead">Každý hráč na nový řádek. Stačí jen jméno, další údaje oddělte čárkou v tomto pořadí:</p>
+            <div class="csv-format-example">Jméno,Partner,Klub,Nasazení,E-mail,Telefon
+Jan Novák,,SK Praha,8
+Petr Svoboda
+Alena Malá,Karel Malý,BC Ostrava,5</div>
+            <p class="field-hint">Partnera vyplňte jen u čtyřhry. Nasazení 1–10, nepovinné.</p>
+            <div class="field">
+                <label class="field-label" for="csv-text-input">Seznam</label>
+                <textarea id="csv-text-input" class="mono" placeholder="Jan Novák,,SK Praha,8&#10;Petr Svoboda" oninput="previewCSV(true)"></textarea>
             </div>
-            <div class="input-group">
-                <label>📂 Nahrát CSV soubor</label>
+            <label class="file-drop">
+                ${Icons.svg('upload')}<span><strong>Nebo nahrajte soubor CSV</strong><span>Například export přihlášek z tabulky</span></span>
                 <input type="file" accept=".csv,.txt" onchange="importCSVFile(this.files[0])">
-            </div>
-            <div class="input-group">
-                <label>📝 Nebo vložte text (každý účastník na nový řádek):</label>
-                <textarea id="csv-text-input" placeholder="Jan Novák,,SK Praha,8&#10;Petr Svoboda,,TJ Brno,6" style="min-height:180px;font-family:monospace;font-size:0.9em;"></textarea>
-            </div>
-            <div id="csv-preview" style="display:none;margin-top:15px;"></div>
+            </label>
+            <div id="csv-preview" hidden></div>
             <div class="button-group">
-                <button class="btn btn-primary" onclick="importCSVText()">📥 Importovat</button>
-                <button class="btn btn-outline" onclick="previewCSV()">👁️ Náhled</button>
-                <button class="btn btn-outline" onclick="this.closest('.modal').remove()">Zrušit</button>
+                <button class="btn btn-primary" onclick="importCSVText()">${Icons.svg('check')}Přidat hráče</button>
+                <button class="btn btn-quiet" onclick="this.closest('.modal').remove()">Zrušit</button>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
+    modal.querySelector('textarea').focus();
 }
 
 function parseCSVLine(line) {
@@ -787,29 +803,26 @@ function parseCSV(text) {
     return { participants, errors };
 }
 
-function previewCSV() {
+function previewCSV(silent) {
     const text = document.getElementById('csv-text-input').value;
-    if (!text.trim()) { Utils.showNotification('Vložte CSV text', 'error'); return; }
-    const { participants, errors } = parseCSV(text);
     const preview = document.getElementById('csv-preview');
-    preview.style.display = 'block';
+    if (!text.trim()) {
+        preview.hidden = true;
+        if (!silent) Utils.showNotification('Vložte seznam hráčů', 'error');
+        return;
+    }
+    const { participants, errors } = parseCSV(text);
+    preview.hidden = false;
     preview.innerHTML = `
-        <div style="background:var(--bg);border-radius:8px;padding:15px;">
-            <strong>Náhled (${participants.length} účastníků):</strong>
-            ${errors.length ? `<div style="color:var(--danger);font-size:0.875em;margin:8px 0;">${errors.map(e => `⚠️ ${e}`).join('<br>')}</div>` : ''}
-            <div style="max-height:200px;overflow-y:auto;margin-top:10px;">
+        <div class="csv-preview">
+            <strong>Přidá se ${participants.length} ${Utils.plural(participants.length, 'hráč', 'hráči', 'hráčů')}</strong>
+            ${errors.length ? `<div class="csv-errors">${errors.map(e => `<span>${Icons.svg('alert')}${e}</span>`).join('')}</div>` : ''}
+            <ul class="csv-list">
                 ${participants.map(p => `
-                    <div style="display:flex;align-items:center;gap:10px;padding:6px;border-bottom:1px solid var(--border);">
-                        <div style="width:30px;height:30px;border-radius:50%;background:var(--primary);color:white;display:flex;align-items:center;justify-content:center;font-size:0.75em;font-weight:bold;flex-shrink:0;">${Utils.getInitials(p.name)}</div>
-                        <div>
-                            <div style="font-weight:500;">${p.name}${p.partner ? ` & ${p.partner}` : ''}</div>
-                            <div style="font-size:0.8em;color:var(--text-muted);">${p.club || 'Bez klubu'} • Nasazení: ${p.seed}</div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `;
+                    <li><span class="avatar">${Utils.getInitials(p.name)}</span>
+                        <span><strong>${p.name}${p.partner ? ` &amp; ${p.partner}` : ''}</strong><span>${p.club || 'Bez klubu'}, nasazení ${p.seed}</span></span></li>`).join('')}
+            </ul>
+        </div>`;
 }
 
 function importCSVText() {
@@ -843,37 +856,29 @@ function showTemplatesModal() {
     const modal = document.createElement('div');
     modal.className = 'modal show';
     modal.id = 'templates-modal';
-
-    const templateCards = templates.length > 0
-        ? `<div class="template-grid">
-            ${templates.map(t => `
-                <div class="template-card" onclick="loadTemplate(${t.id})">
-                    <button class="template-delete" onclick="event.stopPropagation();deleteTemplate(${t.id})" title="Smazat šablonu">🗑️</button>
-                    <div class="template-card-title">📋 ${t.name}</div>
-                    <div class="template-card-meta">
-                        🎯 ${Utils.getSystemName(t.system)}<br>
-                        🏸 ${t.disciplineType === 'singles' ? 'Dvouhra' : t.disciplineType === 'doubles' ? 'Čtyřhra' : 'Smíšené'}<br>
-                        🏟️ ${t.numCourts} kurt${t.numCourts > 1 ? 'y' : ''} • Best of ${t.bestOf}<br>
-                        🎯 ${t.pointsPerSet} bodů/set
-                    </div>
-                </div>
-            `).join('')}
-           </div>`
-        : `<div style="text-align:center;padding:30px;color:var(--text-muted);">Žádné uložené šablony. Uložte aktuální konfiguraci!</div>`;
+    const disc = t => t.disciplineType === 'singles' ? 'Dvouhra' : t.disciplineType === 'doubles' ? 'Čtyřhra' : 'Smíšené';
 
     modal.innerHTML = `
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3>📋 Šablony turnajů</h3>
-                <button class="modal-close" onclick="this.closest('.modal').remove()">×</button>
+                <h3>Šablony turnajů</h3>
+                <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">${Icons.svg('x')}</button>
             </div>
-            <p style="color:var(--text-muted);margin-bottom:15px;">
-                Uložte aktuální nastavení jako šablonu pro příští turnaj.
-            </p>
-            <div class="button-group" style="margin-bottom:20px;">
-                <button class="btn btn-primary" onclick="saveCurrentAsTemplate()">💾 Uložit aktuální konfiguraci</button>
+            <p class="modal-lead">Šablona si pamatuje formát, kurty a pravidla. Příští ročník pak nastavíte jedním klepnutím.</p>
+            <div class="button-group button-group-top">
+                <button class="btn btn-primary" onclick="saveCurrentAsTemplate()">${Icons.svg('save')}Uložit současné nastavení</button>
             </div>
-            ${templateCards}
+            ${templates.length ? `
+                <div class="template-grid">
+                    ${templates.map(t => `
+                        <div class="template-card" role="button" tabindex="0" onclick="loadTemplate(${t.id})" onkeydown="if(event.key==='Enter') loadTemplate(${t.id})">
+                            <button class="icon-btn icon-btn-sm template-delete" onclick="event.stopPropagation();deleteTemplate(${t.id})" title="Smazat šablonu" aria-label="Smazat šablonu ${t.name}">${Icons.svg('trash')}</button>
+                            <div class="template-card-title">${t.name}</div>
+                            <div class="template-card-meta">${Utils.getSystemName(t.system)}, ${disc(t).toLowerCase()}</div>
+                            <div class="template-card-meta">${t.numCourts} ${Utils.plural(t.numCourts, 'kurt', 'kurty', 'kurtů')}, ${t.bestOf === 1 ? '1 set' : `na ${Math.ceil(t.bestOf / 2)} vítězné sety`} do ${t.pointsPerSet}</div>
+                        </div>`).join('')}
+                </div>` : `
+                <div class="empty-state"><p><strong>Zatím žádná šablona.</strong></p><p>Nastavte turnaj a uložte ho jako šablonu.</p></div>`}
         </div>
     `;
     document.body.appendChild(modal);
@@ -1000,7 +1005,7 @@ function openSpectatorMode() {
         <div class="modal-content modal-narrow">
             <div class="modal-header">
                 <h3><span class="live-dot" aria-hidden="true"></span> Živé sdílení</h3>
-                <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">×</button>
+                <button class="modal-close" onclick="this.closest('.modal').remove()" aria-label="Zavřít">${Icons.svg('x')}</button>
             </div>
             <p class="modal-lead">Diváci a hráči uvidí kurty, pořadí zápasů a tabulky v reálném čase. Odkaz platí po celý turnaj.</p>
             <div class="qr-frame"><img src="${qrUrl}" alt="QR kód živého sdílení" width="220" height="220"></div>

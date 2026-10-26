@@ -137,202 +137,90 @@ const Matches = {
         };
     },
 
-    renderCard(match) {
+    // Set je rozhodnutý, když jsou obě čísla a skóre odpovídá pravidlům (hranice, rozdíl, strop)
+    setDecided(set) {
+        return !!set && set.score1 !== null && set.score2 !== null && set.score1 !== undefined && set.score2 !== undefined
+            && set.score1 !== set.score2 && Utils.validateSet(set.score1, set.score2);
+    },
+
+    // Rozehraný set: první nerozhodnutý; -1, když už má někdo potřebný počet setů
+    currentSetIdx(match) {
+        const need = Math.ceil((match.sets || []).length / 2);
+        let w1 = 0, w2 = 0;
+        for (let i = 0; i < match.sets.length; i++) {
+            const s = match.sets[i];
+            if (!this.setDecided(s)) return (w1 >= need || w2 >= need) ? -1 : i;
+            if (s.score1 > s.score2) w1++; else w2++;
+            if (w1 >= need || w2 >= need) return -1;
+        }
+        return -1;
+    },
+
+    setsWon(match) {
+        const sets = (match.sets || []).filter(s => s && s.score1 !== null && s.score2 !== null && s.score1 !== undefined);
+        return [sets.filter(s => s.score1 > s.score2).length, sets.filter(s => s.score2 > s.score1).length];
+    },
+
+    // Kompaktní řádek zápasu v rozpisu; klepnutím se otevře panel se skóre
+    renderRow(match) {
         const idx = State.current.matches.indexOf(match);
-        const isCompleted = match.completed;
-        const isPlaying = match.playing;
+        const [w1, w2] = this.setsWon(match);
+        const winner = match.completed ? (w1 > w2 ? 1 : w2 > w1 ? 2 : 0) : 0;
+        const state = match.completed ? 'is-done' : match.playing ? 'is-live' : 'is-pending';
+        const color = match.group ? UI.getGroupColor(match.group) : 'var(--rule-strong)';
+        const sets = Courts.setsSummary(match);
 
-        let winner = null;
-        let scoreDisplay = '';
-
-        if (isCompleted && match.sets) {
-            const p1Sets = match.sets.filter(s => s.score1 > s.score2).length;
-            const p2Sets = match.sets.filter(s => s.score2 > s.score1).length;
-            winner = p1Sets > p2Sets ? 1 : p2Sets > p1Sets ? 2 : 0;
-            scoreDisplay = `${p1Sets}:${p2Sets}`;
+        let center;
+        if (match.completed) {
+            center = `<span class="mr-result">${w1}:${w2}</span><span class="mr-sets">${sets}</span>`;
+        } else if (match.playing) {
+            center = `<span class="mr-live"><span class="live-dot"></span>${sets || 'hraje se'}</span>`;
+        } else {
+            center = `<span class="mr-vs">vs</span>`;
         }
 
-        const p1Name = Utils.getPlayerDisplayName(match.player1);
-        const p2Name = Utils.getPlayerDisplayName(match.player2);
-
-        // Quick score mode - check if enabled
-        const quickScoreMode = State.current.quickScoreMode || false;
-
-        // Kompaktní verze pro dokončené zápasy
-        if (isCompleted) {
-            return `
-                <div class="match-card completed collapsed" id="match-${idx}" data-match="${idx}">
-                    <div class="match-summary" onclick="toggleMatchDetail(${idx})">
-                        <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
-                            <span class="match-no">${idx + 1}</span>
-                            <div class="match-result" style="flex: 1;">
-                                <span class="${winner === 1 ? 'is-winner' : ''}">${p1Name}</span>
-                                <span class="match-score">${scoreDisplay}</span>
-                                <span class="${winner === 2 ? 'is-winner' : ''}">${p2Name}</span>
-                            </div>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span class="match-sets-inline">
-                                ${match.sets.map(s => `${s.score1}:${s.score2}`).filter(s => !s.includes('null')).join('  ')}
-                            </span>
-                            <span class="expand-icon" aria-hidden="true"></span>
-                        </div>
-                    </div>
-                    
-                    <div class="match-details" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border);">
-                        <div class="match-header">
-                            <span class="court-badge">Kurt ${match.court}</span>
-                            ${match.startTime ? `<span class="match-time">${new Date(match.startTime).toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'})} - ${new Date(match.endTime).toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'})}</span>` : ''}
-                        </div>
-                        
-                        <div class="match-players" style="margin-top: 15px;">
-                            <div class="player-side ${winner === 1 ? 'winner' : ''}">
-                                <div class="mini-avatar">
-                                    ${Utils.getInitials(match.player1)}
-                                </div>
-                                <span>${p1Name}</span>
-                            </div>
-                            <div class="vs">vs</div>
-                            <div class="player-side ${winner === 2 ? 'winner' : ''}">
-                                <div class="mini-avatar">
-                                    ${Utils.getInitials(match.player2)}
-                                </div>
-                                <span>${p2Name}</span>
-                            </div>
-                        </div>
-
-                        <div class="sets-container">
-                            ${match.sets.map((set, setIdx) => {
-                                if (set.score1 === null && set.score2 === null) return '';
-                                return `
-                                    <div class="set-row set-row-done">
-                                        <span class="set-label">Set ${setIdx + 1}</span>
-                                        <span class="set-final">${set.score1}:${set.score2}</span>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-
-                        ${State.current.notes[idx] ? `
-                            <div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:6px;">
-                                <strong style="font-size:0.875em;color:var(--text-muted);">Poznámka</strong>
-                                <p style="margin-top:5px;">${State.current.notes[idx]}</p>
-                            </div>
-                        ` : ''}
-
-                        <div class="button-group" style="margin-top: 15px;">
-                            <button class="btn btn-outline btn-sm" onclick="editMatch(${idx})">Opravit výsledek</button>
-                        </div>
-                    </div>
-                </div>
-            `;
+        let action;
+        if (match.completed) {
+            action = `<span class="mr-chev">${Icons.svg('chevronRight')}</span>`;
+        } else if (match.playing) {
+            action = `<span class="mr-timer" id="timer-${idx}">${match.startTime ? Utils.calculateElapsed(match.startTime) : ''}</span>`;
+        } else {
+            action = `<button class="btn btn-sm btn-secondary mr-start" onclick="event.stopPropagation(); startMatch(${idx})" title="Začít na kurtu ${match.court}">${Icons.svg('play')}<span>Kurt ${match.court}</span></button>`;
         }
 
-        // Plná verze pro probíhající/nedokončené zápasy
-        const groupColor = match.group ? UI.getGroupColor(match.group) : null;
         return `
-            <div class="match-card ${isPlaying ? 'playing' : ''}" data-match="${idx}" id="match-${idx}"
-                 ${groupColor ? `style="--group:${groupColor};"` : ''}>
-                ${isPlaying ? `<div class="match-badge"><span class="live-dot"></span> Hraje se</div>` : ''}
-                
-                <div class="match-header">
-                    <span class="match-no">${idx + 1}</span>
-                    ${match.group ? `<span class="group-badge" style="--group:${UI.getGroupColor(match.group)};">Sk. ${match.group}</span>` : match.roundName ? `<span class="round-chip">${match.roundName}</span>` : ''}
-                    <span class="court-badge">Kurt ${match.court}</span>
-                    ${match.startTime ? `<span class="match-time">${new Date(match.startTime).toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'})}</span>` : ''}
-                </div>
-                
-                <div class="match-players">
-                    <div class="player-side">
-                        <div class="mini-avatar">
-                            ${Utils.getInitials(match.player1)}
-                        </div>
-                        <span>${p1Name}</span>
-                    </div>
-                    <div class="vs">vs</div>
-                    <div class="player-side">
-                        <div class="mini-avatar">
-                            ${Utils.getInitials(match.player2)}
-                        </div>
-                        <span>${p2Name}</span>
-                    </div>
-                </div>
-
-                <div class="sets-container">
-                    ${match.sets.map((set, setIdx) => `
-                        <div class="set-row">
-                            <span class="set-label">Set ${setIdx + 1}</span>
-                            ${quickScoreMode ? `
-                                <div style="display:flex;align-items:center;gap:5px;">
-                                    <button class="quick-score-btn" onclick="quickScoreAdjust(${idx}, ${setIdx}, 1, -1)" title="Snížit skóre">−</button>
-                                    <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
-                                           value="${set.score1 !== null ? set.score1 : ''}"
-                                           placeholder="0"
-                                           onchange="updateSet(${idx}, ${setIdx}, 1, this.value)"
-                                           id="match-${idx}-set-${setIdx}-p1">
-                                    <button class="quick-score-btn" onclick="quickScoreAdjust(${idx}, ${setIdx}, 1, 1)" title="Zvýšit skóre">+</button>
-                                </div>
-                                <span class="set-colon">:</span>
-                                <div style="display:flex;align-items:center;gap:5px;">
-                                    <button class="quick-score-btn" onclick="quickScoreAdjust(${idx}, ${setIdx}, 2, -1)" title="Snížit skóre">−</button>
-                                    <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
-                                           value="${set.score2 !== null ? set.score2 : ''}"
-                                           placeholder="0"
-                                           onchange="updateSet(${idx}, ${setIdx}, 2, this.value)"
-                                           id="match-${idx}-set-${setIdx}-p2">
-                                    <button class="quick-score-btn" onclick="quickScoreAdjust(${idx}, ${setIdx}, 2, 1)" title="Zvýšit skóre">+</button>
-                                </div>
-                            ` : `
-                                <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
-                                       value="${set.score1 !== null ? set.score1 : ''}"
-                                       placeholder="0"
-                                       onchange="updateSet(${idx}, ${setIdx}, 1, this.value)"
-                                       id="match-${idx}-set-${setIdx}-p1">
-                                <span class="set-colon">:</span>
-                                <input type="number" class="set-input" min="0" max="${State.current.tieBreakPoints}"
-                                       value="${set.score2 !== null ? set.score2 : ''}"
-                                       placeholder="0"
-                                       onchange="updateSet(${idx}, ${setIdx}, 2, this.value)"
-                                       id="match-${idx}-set-${setIdx}-p2">
-                            `}
-                            ${Utils.validateSet(set.score1, set.score2) ? '' : '<span class="set-warn" title="Neobvyklé skóre setu">!</span>'}
-                        </div>
-                    `).join('')}
-                </div>
-
-                ${isPlaying && match.startTime ? `
-                    <div class="match-timer">Hraje se <span id="timer-${idx}">${Utils.calculateElapsed(match.startTime)}</span></div>
-                ` : ''}
-
-                <details class="match-notes" ${State.current.notes[idx] ? 'open' : ''}>
-                    <summary>Poznámka</summary>
-                    <textarea placeholder="Např. skreč, zranění, kdo pískal…"
-                              onchange="updateNotes(${idx}, this.value)">${State.current.notes[idx] || ''}</textarea>
-                </details>
-
-                <div class="button-group">
-                    ${!isPlaying ? `
-                        <button class="btn btn-primary btn-sm" onclick="startMatch(${idx})">Začít na kurtu ${match.court}</button>
-                    ` : ''}
-                    ${isPlaying ? `
-                        <button class="btn btn-primary btn-sm" onclick="finishMatch(${idx})">Uložit výsledek</button>
-                        <button class="btn btn-outline btn-sm" onclick="toggleQuickScoreMode(${idx})" title="Klávesové zkratky: Q/W pro hráče 1, A/S pro hráče 2">
-                            ${quickScoreMode ? 'Psát čísla' : 'Počítat +1'}
-                        </button>
-                    ` : ''}
-                    <button class="btn btn-outline btn-sm" onclick="Remote.showRefereeQR(${idx})" title="Rozhodčí zapíše výsledek z mobilu">QR pro rozhodčího</button>
-                </div>
-            </div>
-        `;
+            <div class="match-row ${state}" data-match="${idx}" style="--group:${color}" role="button" tabindex="0"
+                 onclick="MatchSheet.open(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();MatchSheet.open(${idx});}"
+                 aria-label="Zápas ${idx + 1}: ${Utils.getPlayerDisplayNamePlain(match.player1)} proti ${Utils.getPlayerDisplayNamePlain(match.player2)}">
+                <span class="mr-no">${idx + 1}</span>
+                <span class="mr-tags">
+                    ${match.playing || match.completed ? `<span class="tag">K${match.court}</span>` : ''}
+                    ${match.group ? `<span class="tag tag-group">${match.group}</span>` : ''}
+                    ${State.current.notes[idx] ? `<span class="tag" title="Má poznámku">${Icons.svg('note')}</span>` : ''}
+                </span>
+                <span class="mr-p mr-p1 ${winner === 1 ? 'is-winner' : ''} ${winner === 2 ? 'is-loser' : ''}">${Utils.getPlayerDisplayName(match.player1)}</span>
+                <span class="mr-center">${center}</span>
+                <span class="mr-p mr-p2 ${winner === 2 ? 'is-winner' : ''} ${winner === 1 ? 'is-loser' : ''}">${Utils.getPlayerDisplayName(match.player2)}</span>
+                <span class="mr-action">${action}</span>
+            </div>`;
     },
 
     start(idx) {
         const match = State.current.matches[idx];
+        // Je-li „jeho“ kurt obsazený, vezme první volný
+        const busy = Courts.onCourt(match.court);
+        let clash = false;
+        if (busy && busy !== match) {
+            const free = Courts.freeCourts()[0];
+            if (free) match.court = free;
+            else clash = true;
+        }
         match.playing = true;
         match.startTime = new Date().toISOString();
         State.save();
         UI.render();
-        Utils.showNotification(`Zápas ${idx + 1} započat`);
+        if (clash) Utils.showNotification(`Všechny kurty jsou obsazené, zápas ${idx + 1} běží souběžně na kurtu ${match.court}`, 'error');
+        else Utils.showNotification(`Zápas ${idx + 1} běží na kurtu ${match.court}`);
         
         // Start timer update
         this.startTimer(idx);
@@ -368,14 +256,14 @@ const Matches = {
 
         // Varování pro nestandardní skóre (ale povolit uložení)
         if (!allSetsValid) {
-            Utils.showNotification('⚠️ Varování: Nestandardní skóre! Zkontrolujte, zda je zadáno správně.', 'error');
+            Utils.showNotification('Neobvyklé skóre setu. Zkontrolujte, jestli je zadané správně.', 'error');
         }
 
         // Pro Best of 3/5 - varování pokud není rozhodnuto (ale povolit remízy a zápasy na čas)
         if (State.current.bestOf > 1) {
             const requiredSets = Math.ceil(State.current.bestOf / 2);
             if (p1SetsWon < requiredSets && p2SetsWon < requiredSets && filledSets > 0) {
-                Utils.showNotification('⚠️ Varování: Zápas není rozhodnut standardním způsobem (možná remíza nebo zápas na čas).', 'error');
+                Utils.showNotification('Zápas nemá vítěze na sety (remíza nebo hra na čas). Uloženo i tak.', 'error');
             }
         }
 
@@ -383,9 +271,14 @@ const Matches = {
         match.completed = true;
         match.endTime = new Date().toISOString();
         State.save();
+        if (MatchSheet.idx === idx) MatchSheet.close();
         UI.render();
-        Utils.showNotification(`Zápas ${idx + 1} ukončen`);
+        const [w1, w2] = this.setsWon(match);
+        const winnerName = w1 > w2 ? Utils.getPlayerDisplayNamePlain(match.player1) : w2 > w1 ? Utils.getPlayerDisplayNamePlain(match.player2) : null;
+        Utils.showNotification(winnerName ? `Zápas ${idx + 1} uložen, vyhrál(a) ${winnerName} ${Math.max(w1, w2)}:${Math.min(w1, w2)}` : `Zápas ${idx + 1} uložen`);
         Courts.afterFinish(match.court);
+        const row = document.querySelector(`.match-row[data-match="${idx}"]`);
+        if (row && !UI.reducedMotion()) row.classList.add('just-done');
     },
 
     edit(idx) {

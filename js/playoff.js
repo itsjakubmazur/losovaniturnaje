@@ -137,13 +137,13 @@ const Playoff = {
         if (Object.keys(tiers).length === 0) return '';
 
         return `
-            <div class="card">
-                <h2>🏆 Poziční finále</h2>
+            <section class="panel">
+                <h2 class="panel-title">Poziční finále</h2>
                 ${Object.keys(tiers).sort((a, b) => a - b).map(tier => {
                     const { name, matches } = tiers[tier];
                     return `
                         <div style="margin-bottom:24px;">
-                            <h3 style="color:var(--primary);margin-bottom:10px;">🏅 ${name}</h3>
+                            <h3 class="tier-title">${name}</h3>
                             <div style="display:flex;flex-direction:column;gap:6px;">
                                 ${matches.map(m => {
                                     const idx = State.current.matches.indexOf(m);
@@ -158,7 +158,7 @@ const Playoff = {
                                             <span class="sp-court-badge" style="flex-shrink:0;">Kurt ${m.court}</span>
                                             <span style="flex:1;${winner===p1?'font-weight:700;color:var(--primary)':''}">${p1}</span>
                                             <span style="font-weight:700;min-width:32px;text-align:center;">
-                                                ${m.completed ? `${p1s}:${p2s}` : m.playing ? '▶' : 'vs'}
+                                                ${m.completed ? `${p1s}:${p2s}` : m.playing ? '<span class="live-dot"></span>' : 'vs'}
                                             </span>
                                             <span style="flex:1;text-align:right;${winner===p2?'font-weight:700;color:var(--primary)':''}">${p2}</span>
                                         </div>
@@ -168,7 +168,7 @@ const Playoff = {
                         </div>
                     `;
                 }).join('')}
-            </div>
+            </section>
         `;
     },
 
@@ -382,8 +382,8 @@ const Playoff = {
             const canAdvance = !isRoundRobin && allCurrentDone && currentRound < totalRounds - 1;
 
             return `
-                <div class="card">
-                    <h2>🏅 ${label}${isRoundRobin ? ' (každý s každým)' : ''}</h2>
+                <section class="panel">
+                    <h2 class="panel-title">${label}${isRoundRobin ? ' (každý s každým)' : ''}</h2>
                     <div class="bracket-container">
                         <div class="bracket">
                             ${rounds.map(({ roundLabel, matches }) => `
@@ -394,7 +394,7 @@ const Playoff = {
                             `).join('')}
                             ${thirdMatch ? `
                                 <div class="bracket-round">
-                                    <div class="bracket-round-title">🥉 O 3. místo (v této skupině)</div>
+                                    <div class="bracket-round-title">O 3. místo</div>
                                     ${this.renderBracketMatch(thirdMatch)}
                                 </div>
                             ` : ''}
@@ -403,11 +403,11 @@ const Playoff = {
                     ${canAdvance ? `
                         <div style="margin-top:12px;">
                             <button class="btn btn-secondary" onclick="advanceConsolationRound(${tier})">
-                                ▶ Generovat další kolo (${label})
+                                ${Icons.svg('bracket')}Další kolo: ${label}
                             </button>
                         </div>
                     ` : ''}
-                </div>
+                </section>
             `;
         }).join('');
     },
@@ -538,7 +538,7 @@ const Playoff = {
         }
 
         State.save();
-        Utils.showNotification(`Playoff pavouk vygenerován! ${paired.length} hráčů postoupilo.`);
+        Utils.showNotification(`Playoff je nachystaný, postupuje ${paired.length} ${Utils.plural(paired.length, "hráč", "hráči", "hráčů")}`);
 
         return true;
     },
@@ -817,8 +817,8 @@ const Playoff = {
             const canAdvance = !isRoundRobin && allCurrentDone && currentRound < totalRounds - 1;
 
             return `
-                <div class="card">
-                    <h2>🥈 ${label}${isRoundRobin ? ' (každý s každým)' : ''}</h2>
+                <section class="panel">
+                    <h2 class="panel-title">${label}${isRoundRobin ? ' (každý s každým)' : ''}</h2>
                     <div class="bracket-container">
                         <div class="bracket">
                             ${rounds.map(({ roundLabel, matches }) => `
@@ -829,7 +829,7 @@ const Playoff = {
                             `).join('')}
                             ${thirdMatch ? `
                                 <div class="bracket-round">
-                                    <div class="bracket-round-title">🥉 O 3. místo (v tomto pavouku)</div>
+                                    <div class="bracket-round-title">O 3. místo</div>
                                     ${this.renderBracketMatch(thirdMatch)}
                                 </div>
                             ` : ''}
@@ -838,11 +838,11 @@ const Playoff = {
                     ${canAdvance ? `
                         <div style="margin-top:12px;">
                             <button class="btn btn-secondary" onclick="advanceLosersBracketRound(${fromRound})">
-                                ▶ Generovat další kolo (${label})
+                                ${Icons.svg('bracket')}Další kolo: ${label}
                             </button>
                         </div>
                     ` : ''}
-                </div>
+                </section>
             `;
         }).join('');
     },
@@ -884,20 +884,20 @@ const Playoff = {
         }
         
         return `
-            <div class="card">
-                <h2>🏆 Playoff Pavouk</h2>
+            <section class="panel">
+                <h2 class="panel-title">${State.current.playoffBracket.isKnockout ? 'Pavouk' : 'Playoff'}</h2>
                 <div class="bracket-container">
                     <div class="bracket">
                         ${rounds.map(round => this.renderBracketRound(round)).join('')}
                         ${thirdPlaceMatch ? `
                             <div class="bracket-round">
-                                <div class="bracket-round-title">🥉 O 3. místo</div>
+                                <div class="bracket-round-title">O 3. místo</div>
                                 ${this.renderBracketMatch(thirdPlaceMatch)}
                             </div>
                         ` : ''}
                     </div>
                 </div>
-            </div>
+            </section>
         `;
     },
     
@@ -939,7 +939,7 @@ const Playoff = {
             <div class="bracket-match ${isCompleted ? 'completed' : ''} ${isPlaying ? 'playing' : ''}" 
                  onclick="scrollToMatch(${State.current.matches.indexOf(match)})"
                  style="cursor: pointer;">
-                ${isPlaying ? '<div class="bracket-match-status">▶️ HRAJE</div>' : ''}
+                ${isPlaying ? '<div class="bracket-match-status"><span class="live-dot"></span>Hraje se</div>' : ''}
                 
                 <div class="bracket-player ${p1Winner ? 'winner' : isCompleted ? 'loser' : ''} ${isTBD ? 'bracket-tbd' : ''}">
                     <div class="bracket-player-name">
