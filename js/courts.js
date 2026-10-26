@@ -136,19 +136,114 @@ const Courts = {
         UI.render();
         if (State.current.voiceCalls && !('speechSynthesis' in window)) {
             Utils.showNotification('Tento prohlížeč neumí hlasové hlášení', 'error');
+        } else if (State.current.voiceCalls) {
+            // Ozve se hned po kliknutí – na iPhonu to zároveň odemkne zvuk pro další hlášení
+            this.speak(['Hlášení zapnuto.']);
         }
     },
 
+    // ===== Hlášení hlasem =====
+
+    // „Kurt jedna“, ne „kurt první“ – číslo napsané jako číslovka čte syntéza správně
+    courtWord(n) {
+        const words = ['nula', 'jedna', 'dva', 'tři', 'čtyři', 'pět', 'šest', 'sedm', 'osm', 'devět', 'deset',
+            'jedenáct', 'dvanáct', 'třináct', 'čtrnáct', 'patnáct', 'šestnáct', 'sedmnáct', 'osmnáct', 'devatenáct', 'dvacet'];
+        return words[n] || String(n);
+    },
+
+    czechVoices() {
+        if (!('speechSynthesis' in window)) return [];
+        return speechSynthesis.getVoices().filter(v => v.lang && v.lang.toLowerCase().replace('_', '-').startsWith('cs'));
+    },
+
+    // Kvalita podle názvu: neuronové hlasy Edge („Natural“) > prémiové > vylepšené > ostatní
+    voiceScore(voice) {
+        const n = voice.name.toLowerCase();
+        if (n.includes('natural') || n.includes('neural')) return 5;
+        if (n.includes('premium') || n.includes('prémiov')) return 4;
+        if (n.includes('enhanced') || n.includes('vylepšen')) return 3;
+        if (n.includes('google')) return 2;
+        return 1;
+    },
+
+    voiceLabel(voice) {
+        // Prémiové a vylepšené hlasy to mají v názvu, dopisujeme jen u ostatních
+        const q = { 5: 'nejpřirozenější', 2: 'online', 1: 'základní' }[this.voiceScore(voice)];
+        return q ? `${voice.name} (${q})` : voice.name;
+    },
+
+    pickVoice() {
+        const voices = this.czechVoices();
+        let saved = null;
+        try { saved = localStorage.getItem('voiceName'); } catch (e) {}
+        return voices.find(v => v.name === saved) ||
+            [...voices].sort((a, b) => this.voiceScore(b) - this.voiceScore(a))[0] || null;
+    },
+
+    setVoice(name) {
+        try { localStorage.setItem('voiceName', name); } catch (e) {}
+        this.testVoice();
+    },
+
+    testVoice() {
+        this.speak([`Kurt ${this.courtWord(1)}.`, 'Jan Novák', 'proti', 'Petr Svoboda.']);
+    },
+
     announce(match) {
-        if (!State.current.voiceCalls || !('speechSynthesis' in window)) return;
-        const text = `Kurt ${match.court}. ${Utils.getPlayerDisplayNamePlain(match.player1)} proti ${Utils.getPlayerDisplayNamePlain(match.player2)}.`
-            .replace(/&/g, 'a');
-        const u = new SpeechSynthesisUtterance(text);
+        if (!State.current.voiceCalls) return;
+        const name = p => Utils.getPlayerDisplayNamePlain(p).replace(/\s*&\s*/g, ' a ');
+        this.speak([`Kurt ${this.courtWord(match.court)}.`, name(match.player1), 'proti', `${name(match.player2)}.`]);
+    },
+
+    // Každá část hlášení je samostatná promluva s pauzou mezi nimi; hlášení se řadí za sebe
+    speechQueue: [],
+    speaking: false,
+
+    speak(phrases) {
+        if (!('speechSynthesis' in window)) return;
+        phrases.forEach((text, i) => this.speechQueue.push({ text, pause: i === phrases.length - 1 ? 1200 : 450 }));
+        if (!this.speaking) this.speakNext();
+    },
+
+    speakNext() {
+        const item = this.speechQueue.shift();
+        if (!item) { this.speaking = false; return; }
+        this.speaking = true;
+        const u = new SpeechSynthesisUtterance(item.text);
         u.lang = 'cs-CZ';
-        u.rate = 0.95;
-        const voice = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('cs'));
+        u.rate = 0.88;
+        const voice = this.pickVoice();
         if (voice) u.voice = voice;
+        let done = false;
+        const next = () => {
+            if (done) return;
+            done = true;
+            setTimeout(() => this.speakNext(), item.pause);
+        };
+        u.onend = next;
+        u.onerror = next;
+        this.currentUtterance = u; // Chrome jinak promluvu uklidí dřív, než dohraje, a onend nepřijde
         speechSynthesis.speak(u);
+    },
+
+    renderVoiceSettings() {
+        if (!State.current.voiceCalls || !('speechSynthesis' in window)) return '';
+        const voices = this.czechVoices();
+        if (voices.length === 0) {
+            return `<p class="voice-settings voice-hint">Tento prohlížeč nemá český hlas. Zkuste Microsoft Edge nebo Safari, případně si český hlas doinstalujte v systému.</p>`;
+        }
+        const current = this.pickVoice();
+        const best = Math.max(...voices.map(v => this.voiceScore(v)));
+        return `
+            <div class="voice-settings">
+                <label for="voice-select">Hlas</label>
+                <select id="voice-select" onchange="Courts.setVoice(this.value)">
+                    ${[...voices].sort((a, b) => this.voiceScore(b) - this.voiceScore(a)).map(v =>
+                        `<option value="${v.name}" ${current && v.name === current.name ? 'selected' : ''}>${this.voiceLabel(v)}</option>`).join('')}
+                </select>
+                <button class="btn btn-sm btn-outline" onclick="Courts.testVoice()">Vyzkoušet</button>
+                ${best < 4 ? `<p class="voice-hint">Přirozenější hlas: v prohlížeči Microsoft Edge jsou zdarma neuronové hlasy Vlasta a Antonín. Na Macu a iPhonu si stáhněte prémiovou Zuzanu (Zpřístupnění → Mluvený obsah → Hlasy → Čeština) a obnovte stránku.</p>` : ''}
+            </div>`;
     },
 
     setsSummary(match) {
@@ -217,6 +312,7 @@ const Courts = {
                         ${free > 0 && readyCount > 0 ? `<button class="btn btn-sm btn-primary" onclick="Courts.fillAll()">Obsadit volné kurty (${Math.min(free, readyCount)})</button>` : ''}
                     </div>
                 </div>
+                ${this.renderVoiceSettings()}
                 <div class="court-grid">${tiles}</div>
                 ${queue.length > 0 ? `
                     <div class="court-queue">
@@ -236,3 +332,13 @@ const Courts = {
         return `<div class="court-grid">${tiles}</div>`;
     }
 };
+
+// Seznam hlasů se v prohlížečích načítá se zpožděním – po načtení překreslit volbu hlasu
+if ('speechSynthesis' in window) {
+    speechSynthesis.addEventListener('voiceschanged', () => {
+        if (typeof UI !== 'undefined' && State.current.voiceCalls && State.current.step === 'matches' && !State.readOnly
+            && !document.activeElement?.closest('input, textarea, select')) {
+            UI.render();
+        }
+    });
+}
