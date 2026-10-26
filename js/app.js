@@ -1,6 +1,12 @@
 // app.js - Hlavní inicializace a globální funkce
 
 // Initialize app
+// Změna odkazu na turnaj (#live=, #ref=, #shared=) bez nového načtení stránky – načíst znovu,
+// protože režim stránky se určuje jen při startu
+window.addEventListener('hashchange', () => {
+    if (/^#(live|ref|shared)=/.test(window.location.hash)) window.location.reload();
+});
+
 function init() {
     // Stránka rozhodčího: #ref=<session>/<zápas>
     const refMatch = window.location.hash.match(/^#ref=([^/&]+)\/(\d+)/);
